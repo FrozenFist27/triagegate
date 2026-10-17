@@ -160,11 +160,15 @@ def decide(approval_id: str, *, decision: str, decided_by: str) -> tuple[DecideO
 
 
 def _build_crm_payload(run_id: str, approval_id: str) -> Optional[dict[str, Any]]:
+    import json as _json
+
     from .crm_mapping import build_crm_payload
 
     conn = get_conn()
     try:
-        row = conn.execute("SELECT triage_json FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        row = conn.execute(
+            "SELECT triage_json, input_json FROM runs WHERE run_id=?", (run_id,)
+        ).fetchone()
     finally:
         conn.close()
     if row is None or not row["triage_json"]:
@@ -172,10 +176,32 @@ def _build_crm_payload(run_id: str, approval_id: str) -> Optional[dict[str, Any]
     from .schemas import TriageResult
 
     triage = TriageResult.model_validate_json(row["triage_json"])
-    payload = build_crm_payload(triage)
+    subject = ""
+    try:
+        subject = _json.loads(row["input_json"]).get("subject", "")
+    except (TypeError, ValueError):
+        pass
+    payload = build_crm_payload(triage, subject=subject, run_id=run_id)
     payload["approval_id"] = approval_id
     payload["run_id"] = run_id
     return payload
+
+
+def decision_card(run_id: str, headline: str) -> tuple[str, list[dict[str, Any]]]:
+    """Replacement text + Block Kit for chat.update after a decision / expiry."""
+    from .slack import build_decision_blocks
+
+    conn = get_conn()
+    try:
+        row = conn.execute("SELECT triage_json FROM runs WHERE run_id=?", (run_id,)).fetchone()
+    finally:
+        conn.close()
+    summary = ""
+    if row and row["triage_json"]:
+        from .schemas import TriageResult
+
+        summary = TriageResult.model_validate_json(row["triage_json"]).request_summary
+    return headline, build_decision_blocks(headline, summary)
 
 
 def record_crm_result(approval_id: str, result: CrmResultIn) -> dict[str, Any]:
@@ -256,6 +282,9 @@ def expire_due_approvals() -> list[dict[str, Any]]:
             )
             expired.append(dict(r))
     for a in expired:
+        a["slack_text"], a["slack_blocks"] = decision_card(
+            a["run_id"], "Expired - no action taken. Nothing was written to the CRM."
+        )
         log_event(
             "approval_expired",
             run_id=a["run_id"],

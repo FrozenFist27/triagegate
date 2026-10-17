@@ -8,7 +8,7 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "c6fe742e-8b54-449a-9df6-8e8c536c1587",
+      "id": "366b6859-9df5-5ea1-ba93-95142c1005c1",
       "name": "Webhook: triage-ingest",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -16,26 +16,24 @@
         0,
         0
       ],
-      "credentials": {
-        "headerAuth": {
-          "id": "sanitized",
-          "name": "TriageGate Ingest Token"
-        }
-      }
+      "webhookId": "c0d90a0c-6c11-55fd-9dad-d2107b1623d2"
     },
     {
       "parameters": {
         "mailbox": "INBOX",
-        "options": {},
-        "downloadAttachments": false
+        "postProcessAction": "nothing",
+        "format": "simple",
+        "options": {
+          "forceReconnect": 60
+        }
       },
-      "id": "b4030257-22d1-4d49-8c9f-2c2f8320d2d4",
-      "name": "Email Trigger (IMAP) [enable manually]",
-      "type": "n8n-nodes-base.emailTrigger",
-      "typeVersion": 1,
+      "id": "358d0568-e06d-5700-ac42-c3219e3ff9ea",
+      "name": "Email Trigger (IMAP) [read-only, disabled]",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
       "position": [
         0,
-        220
+        240
       ],
       "credentials": {
         "imap": {
@@ -47,109 +45,29 @@
     },
     {
       "parameters": {
-        "mode": "manual",
-        "duplicateItem": false,
-        "assignments": {
-          "assignments": [
-            {
-              "id": "1",
-              "name": "message_id",
-              "value": "={{ $json.messageId || $json.MessageID || $json['ID'] || $json.id || $('Webhook: triage-ingest').item.json.headers['x-eval-message-id'] || ('webhook-' + Date.now()) }}",
-              "type": "string"
-            },
-            {
-              "id": "2",
-              "name": "source",
-              "value": "={{ $json.source || ($node['Email Trigger (IMAP) [enable manually]').name && $execution.active ? 'imap' : 'webhook') }}",
-              "type": "string"
-            },
-            {
-              "id": "3",
-              "name": "from_email",
-              "value": "={{ ($json.from || $json.sender || $json.senderAddress || '').toString().match(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/)?.[0] || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "4",
-              "name": "from_name",
-              "value": "={{ ($json.from || $json.fromName || $json.sender || '').toString().replace(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/, '').replace(/[<>\"']/g, '').trim() }}",
-              "type": "string"
-            },
-            {
-              "id": "5",
-              "name": "subject",
-              "value": "={{ ($json.subject || '').toString().slice(0, 500) }}",
-              "type": "string"
-            },
-            {
-              "id": "6",
-              "name": "body_text",
-              "value": "={{ ($json.text || $json.body || $json.bodyText || $json.textPlain || '').toString().slice(0, 8000) }}",
-              "type": "string"
-            },
-            {
-              "id": "7",
-              "name": "received_at",
-              "value": "={{ $json.date || $json.receivedAt || new Date().toISOString() }}",
-              "type": "string"
-            },
-            {
-              "id": "8",
-              "name": "source_hint",
-              "value": "={{ $json.source || 'webhook' }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "const j = $input.first().json;\nconst h = j.headers || {};\nconst b = j.body || {};\nconst expected = $env.N8N_INGEST_TOKEN || '';\nconst authorized = expected.length > 0 && (h['x-ingest-token'] || '') === expected;\nreturn [{ json: {\n  authorized,\n  run_tag: (b.run_tag || '').toString(),\n  email: {\n    message_id: (b.message_id || ('webhook-' + Date.now())).toString(),\n    source: b.source || 'webhook',\n    from_email: (b.from_email || '').toString(),\n    from_name: (b.from_name || '').toString(),\n    subject: (b.subject || '').toString().slice(0, 500),\n    body_text: (b.body_text || '').toString().slice(0, 8000),\n    received_at: b.received_at || new Date().toISOString(),\n  }\n}}];"
       },
-      "id": "b065b54d-aa51-4529-aba2-a00215ee005e",
-      "name": "Set: Normalize",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
+      "id": "7445372e-9531-5d2a-b6b3-24be514f20dd",
+      "name": "Normalize: webhook",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         240,
-        110
+        0
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "http://triage-api:8000/triage",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ message_id: $json.message_id, source: $json.source_hint === 'imap' ? 'imap' : 'webhook', from_email: $json.from_email, from_name: $json.from_name, subject: $json.subject, body_text: $json.body_text, received_at: $json.received_at }) }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Internal-Token",
-              "value": "={{ $env.TRIAGE_API_TOKEN }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 60000
-        }
+        "jsCode": "// Read-only IMAP trigger output -> InboundEmail shape. Never replies, never deletes.\nconst j = $input.first().json;\nconst fromObj = j.from && j.from.value && j.from.value[0] ? j.from.value[0] : {};\nconst addr = fromObj.address || (typeof j.from === 'string' ? (j.from.match(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/) || [''])[0] : '');\nconst name = fromObj.name || '';\nconst body = (j.textPlain || j.text || j.textHtml || '').toString();\nreturn [{ json: {\n  authorized: true,\n  run_tag: 'imap',\n  email: {\n    message_id: (j.messageId || (j.metadata && j.metadata['message-id']) || ('imap-' + Date.now())).toString(),\n    source: 'imap',\n    from_email: addr,\n    from_name: name,\n    subject: (j.subject || '').toString().slice(0, 500),\n    body_text: body.slice(0, 8000),\n    received_at: j.date ? new Date(j.date).toISOString() : new Date().toISOString(),\n  }\n}}];"
       },
-      "id": "d722ec01-dff9-432f-80d3-ee4bef44dd95",
-      "name": "HTTP: Triage",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "6256ad09-bbfa-5dbc-ab66-e370dd00c97e",
+      "name": "Normalize: IMAP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        480,
-        110
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "sanitized",
-          "name": "TriageGate Internal Token"
-        }
-      }
+        240,
+        240
+      ]
     },
     {
       "parameters": {
@@ -161,7 +79,89 @@
           },
           "conditions": [
             {
-              "id": "c1",
+              "id": "b9a43ecd-93d9-521d-876a-cb6a09b05e1f",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1908514f-b692-5cd4-a9ac-34d471aa846a",
+      "name": "IF: authorized",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"unauthorized\" } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "acc64bc0-493e-5ce3-a391-0d733524f4c6",
+      "name": "Respond: 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://triage-api:8000/triage' + ($json.run_tag ? '?run_tag=' + encodeURIComponent($json.run_tag) : '') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $env.TRIAGE_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.email) }}"
+      },
+      "id": "7aff80ea-9259-5b2c-8074-6f314f4b7c11",
+      "name": "HTTP: Triage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "30a79a02-1619-5454-a4e7-b54d772c6343",
               "leftValue": "={{ $json.route }}",
               "rightValue": "approval",
               "operator": {
@@ -174,52 +174,19 @@
         },
         "options": {}
       },
-      "id": "d394feaa-aa2c-4091-8c48-74f4dd4b9b7f",
+      "id": "4dab7eda-dd90-54a2-aa6f-ee14fe01ba75",
       "name": "IF: needs approval?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        720,
-        110
-      ]
-    },
-    {
-      "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $env.SLACK_APPROVAL_CHANNEL_ID }}"
-        },
-        "text": "={{ $json.slack_text }}",
-        "otherOptions": {
-          "includeLinkToWorkflow": false
-        }
-      },
-      "id": "8f85ee81-d9d3-4d09-926f-66db9267c7be",
-      "name": "Slack: Post Approval",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.2,
-      "position": [
         960,
-        0
-      ],
-      "credentials": {
-        "slackApi": {
-          "id": "sanitized",
-          "name": "TriageGate Slack Bot"
-        }
-      }
+        80
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "https://slack.com/api/chat.postMessage",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel: $env.SLACK_APPROVAL_CHANNEL_ID, text: $('HTTP: Triage').item.json.slack_text, blocks: $('HTTP: Triage').item.json.slack_blocks }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -233,24 +200,60 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $env.SLACK_APPROVAL_CHANNEL_ID, text: $json.slack_text, blocks: $json.slack_blocks }) }}"
       },
-      "id": "bc7ecfa7-c931-4344-a396-27015d3f35c9",
-      "name": "Slack: Post Blocks (chat.postMessage)",
+      "id": "d1498147-98a3-53b5-99b6-860712439636",
+      "name": "Slack: Post Approval",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
         1200,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "2e04f58f-8431-50f6-afcc-415bba58ebfb",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8a1598fa-f969-5daa-bf39-040419ef38be",
+      "name": "IF: Slack ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
         0
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=http://triage-api:8000/approvals/{{ $('HTTP: Triage').item.json.approval_id }}/slack-ref",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel: $json.channel, ts: $json.ts }) }}",
+        "url": "={{ 'http://triage-api:8000/approvals/' + $('HTTP: Triage').first().json.approval_id + '/slack-ref' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -260,30 +263,48 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $json.channel, ts: $json.ts }) }}"
       },
-      "id": "de3f319a-1c18-4c82-830c-a9af04756b68",
+      "id": "411cfcae-b4ae-50be-8210-c8e73b8c1234",
       "name": "HTTP: Save Slack Ref",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1440,
-        0
+        1680,
+        -40
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const t = $('HTTP: Triage').first().json;\nlet slackPosted = null;\ntry { slackPosted = !!$('Slack: Post Approval').first().json.ok; } catch (e) {}\nreturn [{ json: {\n  run_id: t.run_id, status: t.status, route: t.route, attempts: t.attempts,\n  triage: t.triage || null, approval_id: t.approval_id || null, slack_posted: slackPosted,\n}}];"
+      },
+      "id": "2d1c4a23-3bda-529e-96b2-4d00d4d3888c",
+      "name": "Code: Build response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        120
       ]
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ run_id: $('HTTP: Triage').item.json.run_id, status: $('HTTP: Triage').item.json.status, route: $('HTTP: Triage').item.json.route, category: $('HTTP: Triage').item.json.triage ? $('HTTP: Triage').item.json.triage.category : null, approval_id: $('HTTP: Triage').item.json.approval_id }) }}",
+        "respondWith": "firstIncomingItem",
         "options": {}
       },
-      "id": "dd2edf4a-8502-4572-a501-61e87aa6cbc6",
+      "id": "4c60a25b-0716-588f-87e2-d7522d379806",
       "name": "Respond: result",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1440,
-        220
+        2160,
+        120
       ]
     }
   ],
@@ -292,29 +313,58 @@
       "main": [
         [
           {
-            "node": "Set: Normalize",
+            "node": "Normalize: webhook",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Email Trigger (IMAP) [enable manually]": {
+    "Email Trigger (IMAP) [read-only, disabled]": {
       "main": [
         [
           {
-            "node": "Set: Normalize",
+            "node": "Normalize: IMAP",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Set: Normalize": {
+    "Normalize: webhook": {
+      "main": [
+        [
+          {
+            "node": "IF: authorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize: IMAP": {
+      "main": [
+        [
+          {
+            "node": "IF: authorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: authorized": {
       "main": [
         [
           {
             "node": "HTTP: Triage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: 401",
             "type": "main",
             "index": 0
           }
@@ -336,21 +386,32 @@
       "main": [
         [
           {
-            "node": "Slack: Post Blocks (chat.postMessage)",
+            "node": "Slack: Post Approval",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Respond: result",
+            "node": "Code: Build response",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Slack: Post Blocks (chat.postMessage)": {
+    "Slack: Post Approval": {
+      "main": [
+        [
+          {
+            "node": "IF: Slack ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Slack ok?": {
       "main": [
         [
           {
@@ -358,10 +419,28 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Code: Build response",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "HTTP: Save Slack Ref": {
+      "main": [
+        [
+          {
+            "node": "Code: Build response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build response": {
       "main": [
         [
           {
@@ -374,13 +453,15 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "saveManualExecutions": true
+    "executionOrder": "v1"
   },
   "pinData": {},
   "meta": {
     "instanceId": "sanitized"
   },
   "active": false,
-  "tags": []
+  "tags": [],
+  "versionId": "6a78c2ed-80f8-5a80-9987-a2a3b7d4b1c0",
+  "id": "1cdd0660f4b656",
+  "description": "Webhook (eval/replay) or read-only IMAP -> triage-api -> Slack approval card."
 }

@@ -140,6 +140,9 @@ class DecideResponse(BaseModel):
     approval: Optional[dict[str, Any]] = None
     crm_payload: Optional[dict[str, Any]] = None
     message: str = ""
+    # replacement card for chat.update (n8n posts it; empty for no-op outcomes)
+    slack_text: str = ""
+    slack_blocks: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ExpireResponse(BaseModel):

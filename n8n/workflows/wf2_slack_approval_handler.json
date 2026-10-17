@@ -6,15 +6,32 @@
         "httpMethod": "POST",
         "path": "slack-actions",
         "responseMode": "onReceived",
-        "responseData": "firstEntryJson",
-        "options": {}
+        "responseCode": 200,
+        "responseData": "noData",
+        "options": {
+          "rawBody": true
+        }
       },
-      "id": "9d279d3a-4ab7-4d2c-95ae-3163b589cb78",
+      "id": "8acb0ba6-d2b7-5f9a-ab3e-8cbea3c7624f",
       "name": "Webhook: slack-actions",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         0,
+        0
+      ],
+      "webhookId": "622d29b9-2a26-5c1e-b2a5-d88654d42646"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Slack signs the exact raw bytes, so read the raw body binary, not the parsed form.\nconst item = $input.first();\nconst h = item.json.headers || {};\nconst buf = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: {\n  raw_body: buf.toString('utf8'),\n  signature: h['x-slack-signature'] || '',\n  timestamp: h['x-slack-request-timestamp'] || '',\n}}];"
+      },
+      "id": "790f8e66-3f0b-5685-a150-19ccf251be44",
+      "name": "Code: Extract raw body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
         0
       ]
     },
@@ -22,9 +39,6 @@
       "parameters": {
         "method": "POST",
         "url": "http://triage-api:8000/approvals/decide",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ raw_body: $json.body || $json.rawBody || $json.data || '', signature: $json.headers['x-slack-signature'] || '', timestamp: $json.headers['x-slack-request-timestamp'] || '' }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -36,14 +50,17 @@
         },
         "options": {
           "timeout": 20000
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ raw_body: $json.raw_body, signature: $json.signature, timestamp: $json.timestamp }) }}"
       },
-      "id": "e1d6b362-0931-4967-b4d8-6906abec02c0",
+      "id": "77f93b9c-5ea8-5944-b273-bc4c277f5b91",
       "name": "HTTP: Decide",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        260,
+        480,
         0
       ]
     },
@@ -60,7 +77,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "w1",
+                    "id": "2cbc92d0-b464-55f4-b3fe-9fcf34089be1",
                     "leftValue": "={{ $json.outcome }}",
                     "rightValue": "write_crm",
                     "operator": {
@@ -83,7 +100,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "w2",
+                    "id": "1a2d7e52-5b2f-5f45-980e-29616874e2e6",
                     "leftValue": "={{ $json.outcome }}",
                     "rightValue": "rejected",
                     "operator": {
@@ -106,7 +123,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "w3",
+                    "id": "282bdc2d-ffa4-5d4c-956d-2b9b95da9494",
                     "leftValue": "={{ $json.outcome }}",
                     "rightValue": "expired",
                     "operator": {
@@ -120,132 +137,105 @@
               "renameOutput": true,
               "outputKey": "expired"
             }
-          ],
-          "options": {
-            "fallbackOutput": "extra",
-            "renameFallbackOutput": true
-          }
+          ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "no-op (duplicate / invalid)"
+        }
       },
-      "id": "b2e768a9-74d0-454a-8379-6a0119f726b8",
+      "id": "c6de3dff-44ad-5b1e-ad05-ce312aa908ce",
       "name": "Switch: outcome",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
       "position": [
-        500,
+        720,
         0
       ]
     },
     {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: $json.crm_payload.contact.email }] }], properties: ['email', 'firstname', 'lastname', 'company'], limit: 1 }) }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.HUBSPOT_SERVICE_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 30000
-        },
-        "onError": "continueRegularOutput"
-      },
-      "id": "332c7efb-86b4-4c68-9abf-165ad7af3713",
-      "name": "HubSpot: Search Contact",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "parameters": {},
+      "id": "48fcb859-c202-565e-960b-4abfe6cc68e1",
+      "name": "NoOp: duplicate / invalid_signature",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
       "position": [
-        760,
-        -160
+        980,
+        460
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://api.hubapi.com/crm/v3/objects/contacts{{ $('Switch: outcome').item.json.crm_payload.contact && $json.results && $json.results.length ? '/' + $json.results[0].id : '' }}",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ properties: $('Switch: outcome').item.json.crm_payload.contact }) }}",
+        "url": "https://slack.com/api/chat.update",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.HUBSPOT_SERVICE_KEY }}"
+              "value": "={{ 'Bearer ' + $env.SLACK_BOT_TOKEN }}"
             },
             {
               "name": "Content-Type",
-              "value": "application/json"
+              "value": "application/json; charset=utf-8"
             }
           ]
         },
         "options": {
           "timeout": 30000
         },
-        "onError": "continueRegularOutput"
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $json.approval.slack_channel, ts: $json.approval.slack_ts, text: $json.slack_text, blocks: $json.slack_blocks }) }}"
       },
-      "id": "a08f0e02-ddd9-4fba-b4dd-ee633c20979a",
-      "name": "HubSpot: Upsert Contact",
+      "id": "22ef4bcc-593f-5265-af54-f48cd6b7612a",
+      "name": "Slack: Update (rejected)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1000,
-        -160
-      ]
+        980,
+        160
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.hubapi.com/crm/v3/objects/companies",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $('Switch: outcome').item.json.crm_payload.company ? JSON.stringify({ properties: $('Switch: outcome').item.json.crm_payload.company }) : JSON.stringify({ properties: { name: '[TriageGate test] ' + ($('Switch: outcome').item.json.crm_payload.contact.company || 'Unknown') } }) }}",
+        "url": "https://slack.com/api/chat.update",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.HUBSPOT_SERVICE_KEY }}"
+              "value": "={{ 'Bearer ' + $env.SLACK_BOT_TOKEN }}"
             },
             {
               "name": "Content-Type",
-              "value": "application/json"
+              "value": "application/json; charset=utf-8"
             }
           ]
         },
         "options": {
           "timeout": 30000
         },
-        "onError": "continueRegularOutput"
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $json.approval.slack_channel, ts: $json.approval.slack_ts, text: $json.slack_text, blocks: $json.slack_blocks }) }}"
       },
-      "id": "c393c59b-c672-4f02-90fa-877d22e9179d",
-      "name": "HubSpot: Create Company",
+      "id": "a1fd78c5-389b-5887-ac9c-4ab77bc0c7cd",
+      "name": "Slack: Update (expired)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1240,
-        -260
-      ]
+        980,
+        300
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.hubapi.com/crm/v3/objects/tickets",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ properties: $('Switch: outcome').item.json.crm_payload.ticket }) }}",
+        "url": "={{ ($env.HUBSPOT_API_BASE || 'https://api.hubapi.com') + '/crm/v3/objects/contacts/search' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -262,15 +252,132 @@
         "options": {
           "timeout": 30000
         },
-        "onError": "continueRegularOutput"
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: $('HTTP: Decide').first().json.crm_payload.contact.email }] }], properties: ['email'], limit: 1 }) }}"
       },
-      "id": "5f9afbc3-95e3-432e-94f4-5bb6e069fb35",
-      "name": "HubSpot: Create Ticket",
+      "id": "49d4eb92-1a60-5c4b-b2e5-249b4f203b8a",
+      "name": "HS: Search Contact",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1240,
-        -60
+        980,
+        -200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "bf3c07a5-71da-5636-a683-0b43dd70876b",
+              "leftValue": "={{ ($json.results || []).length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c7fbe5e3-52e7-5abb-b69c-50261b9c1a66",
+      "name": "IF: contact exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ ($env.HUBSPOT_API_BASE || 'https://api.hubapi.com') + '/crm/v3/objects/contacts/' + $json.results[0].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.HUBSPOT_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: $('HTTP: Decide').first().json.crm_payload.contact }) }}"
+      },
+      "id": "1c3c47cf-9b3c-5e6e-bc67-0223f62c09ce",
+      "name": "HS: Update Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        -300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.HUBSPOT_API_BASE || 'https://api.hubapi.com') + '/crm/v3/objects/contacts' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.HUBSPOT_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: $('HTTP: Decide').first().json.crm_payload.contact }) }}"
+      },
+      "id": "64dabd00-c509-578e-aaf5-c710e60a6e93",
+      "name": "HS: Create Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        -120
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('HTTP: Decide').first().json;\nlet r = null, step = '';\nfor (const n of ['HS: Update Contact', 'HS: Create Contact']) {\n  try { const j = $(n).first().json; if (j) { r = j; step = n; } } catch (e) {}\n}\nr = r || {};\nlet id = r.id ? String(r.id) : null;\nlet error = null;\nif (!id) {\n  const txt = JSON.stringify(r);\n  const m = txt.match(/Existing ID: ?(\\d+)/);       // HubSpot 409: contact already exists\n  if (m) { id = m[1]; }\n  else { error = (step || 'contact') + ' failed: ' + txt.slice(0, 300); }\n}\nreturn [{ json: { contact_id: id, error, payload: d.crm_payload } }];"
+      },
+      "id": "946f956b-13b6-510a-8226-80c421c7059b",
+      "name": "Code: Contact ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        -200
       ]
     },
     {
@@ -283,9 +390,9 @@
           },
           "conditions": [
             {
-              "id": "l1",
-              "leftValue": "={{ $('Switch: outcome').item.json.crm_payload.category }}",
-              "rightValue": "sales_lead",
+              "id": "4edccb04-6c0f-5bb8-b27b-40288e63ba2b",
+              "leftValue": "={{ $json.payload.category }}",
+              "rightValue": "support_request",
               "operator": {
                 "type": "string",
                 "operation": "equals"
@@ -296,22 +403,133 @@
         },
         "options": {}
       },
-      "id": "e5cbf1f7-ee96-4cbe-989e-7b6ce2fc9846",
-      "name": "IF: sales_lead?",
+      "id": "328272ec-2420-597c-8169-01fbae060474",
+      "name": "IF: support_request?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1120,
-        -60
+        1900,
+        -200
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=http://triage-api:8000/approvals/{{ $('Switch: outcome').item.json.approval.approval_id }}/crm-result",
+        "url": "={{ ($env.HUBSPOT_API_BASE || 'https://api.hubapi.com') + '/crm/v3/objects/tickets' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.HUBSPOT_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ status: 'success', hubspot_contact_id: ($json.id || $('HubSpot: Upsert Contact').item.json.id || null), hubspot_company_id: ($('HubSpot: Create Company').isExecuted ? $('HubSpot: Create Company').item.json.id : null), hubspot_ticket_id: ($('HubSpot: Create Ticket').isExecuted ? $('HubSpot: Create Ticket').item.json.id : null) }) }}",
+        "jsonBody": "={{ JSON.stringify({ properties: $json.payload.ticket, associations: [{ to: { id: $json.contact_id }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 16 }] }] }) }}"
+      },
+      "id": "89ff234b-1d0a-558f-9574-5a8416eba1e0",
+      "name": "HS: Create Ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2140,
+        -300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cccc3ca9-777a-5a9d-ba08-e2022020d274",
+              "leftValue": "={{ !!$json.payload.company && !!$json.contact_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "645f8783-0d59-557a-895c-2139a8a5fa8f",
+      "name": "IF: has company?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.HUBSPOT_API_BASE || 'https://api.hubapi.com') + '/crm/v3/objects/companies' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.HUBSPOT_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: $json.payload.company, associations: [{ to: { id: $json.contact_id }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 280 }] }] }) }}"
+      },
+      "id": "db9767b8-4040-59b2-b77c-480c1a418d66",
+      "name": "HS: Create Company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2380,
+        -140
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $('Code: Contact ID').first().json;\nconst d = $('HTTP: Decide').first().json;\nconst out = { status: 'success', hubspot_contact_id: c.contact_id, hubspot_company_id: null,\n              hubspot_ticket_id: null, error: null };\nconst errs = [];\nif (c.error) errs.push(c.error);\nfor (const [n, key] of [['HS: Create Company', 'hubspot_company_id'], ['HS: Create Ticket', 'hubspot_ticket_id']]) {\n  try {\n    const j = $(n).first().json;\n    if (j && j.id) out[key] = String(j.id);\n    else errs.push(n + ' failed: ' + JSON.stringify(j).slice(0, 300));\n  } catch (e) {}\n}\nif (errs.length) { out.status = 'failed'; out.error = errs.join(' | ').slice(0, 900); }\nconst who = (d.approval && d.approval.decided_by) || 'reviewer';\nconst ids = [out.hubspot_contact_id && ('contact ' + out.hubspot_contact_id),\n             out.hubspot_company_id && ('company ' + out.hubspot_company_id),\n             out.hubspot_ticket_id && ('ticket ' + out.hubspot_ticket_id)].filter(Boolean).join(', ');\nconst headline = out.status === 'success'\n  ? 'Approved by ' + who + ' - written to HubSpot (' + ids + ').'\n  : 'Approved by ' + who + ' but the HubSpot write FAILED - logged for review.';\nreturn [{ json: { result: out, headline, channel: d.approval && d.approval.slack_channel,\n                  ts: d.approval && d.approval.slack_ts, approval_id: d.approval && d.approval.approval_id } }];"
+      },
+      "id": "5a5faa41-c93a-53e5-ad4e-b4fa4d9fc18e",
+      "name": "Code: Build CRM result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://triage-api:8000/approvals/' + $json.approval_id + '/crm-result' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -321,51 +539,26 @@
             }
           ]
         },
-        "options": {}
-      },
-      "id": "fccd10bf-09b3-4f64-be45-91640293f13f",
-      "name": "HTTP: CRM result success",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1500,
-        -160
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=http://triage-api:8000/approvals/{{ $('Switch: outcome').item.json.approval.approval_id }}/crm-result",
+        "options": {
+          "timeout": 30000
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ status: 'failed', error: ($json.error && $json.error.message ? $json.error.message : 'HubSpot write failed').toString().slice(0, 400) }) }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Internal-Token",
-              "value": "={{ $env.TRIAGE_API_TOKEN }}"
-            }
-          ]
-        },
-        "options": {}
+        "jsonBody": "={{ JSON.stringify($json.result) }}"
       },
-      "id": "36d05e0f-8d18-488c-83a3-3c9db3f9620c",
-      "name": "HTTP: CRM result failed",
+      "id": "9f3b70e8-478c-5756-bedb-f220797d361d",
+      "name": "HTTP: CRM result",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1500,
-        60
+        2860,
+        -200
       ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "https://slack.com/api/chat.update",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel: $('Switch: outcome').item.json.approval.slack_channel, ts: $('Switch: outcome').item.json.approval.slack_ts, text: ($json.outcome === 'write_crm' ? ':white_check_mark: Approved and written to HubSpot.' : ($('Switch: outcome').item.json.outcome === 'rejected' ? 'Rejected - no CRM record created.' : ($('Switch: outcome').item.json.outcome === 'expired' ? 'Expired - no action taken.' : 'Processed.'))), blocks: [{ type: 'section', text: { type: 'mrkdwn', text: ($json.outcome === 'write_crm' ? ':white_check_mark: Approved and written to HubSpot by <@' + ($('Switch: outcome').item.json.approval.decided_by || 'unknown') + '>.' : ($('Switch: outcome').item.json.outcome === 'rejected' ? ':x: Rejected - no CRM record created.' : ($('Switch: outcome').item.json.outcome === 'expired' ? ':clock1: Expired - no action taken.' : 'Processed.'))) } }] }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -379,98 +572,37 @@
             }
           ]
         },
-        "options": {},
-        "onError": "continueRegularOutput"
-      },
-      "id": "ba270c54-51b3-4a89-8cdd-a9e9cbd44822",
-      "name": "Slack: Update Message",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1760,
-        -80
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://slack.com/api/chat.update",
+        "options": {
+          "timeout": 30000
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel: $json.approval.slack_channel, ts: $json.approval.slack_ts, text: 'Rejected by ' + ($json.approval.decided_by || 'unknown') + ' - no CRM record created.' }) }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.SLACK_BOT_TOKEN }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json; charset=utf-8"
-            }
-          ]
-        },
-        "options": {},
-        "onError": "continueRegularOutput"
+        "jsonBody": "={{ JSON.stringify({ channel: $('Code: Build CRM result').first().json.channel, ts: $('Code: Build CRM result').first().json.ts, text: $('Code: Build CRM result').first().json.headline, blocks: [{ type: 'section', text: { type: 'mrkdwn', text: '*' + $('Code: Build CRM result').first().json.headline + '*' } }] }) }}"
       },
-      "id": "afd51e11-d03d-44a0-985b-37c9faa33379",
-      "name": "Slack: Update Rejected",
+      "id": "9b095960-1f9d-58c0-9121-11c8e49511a6",
+      "name": "Slack: Update (final)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        760,
-        120
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://slack.com/api/chat.update",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.approval && $json.approval.slack_channel ? JSON.stringify({ channel: $json.approval.slack_channel, ts: $json.approval.slack_ts, text: 'Expired - no action taken.' }) : '{}' }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.SLACK_BOT_TOKEN }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json; charset=utf-8"
-            }
-          ]
-        },
-        "options": {},
-        "onError": "continueRegularOutput"
-      },
-      "id": "d69e289d-f734-4b63-ba71-f098a825f329",
-      "name": "Slack: Update Expired",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        760,
-        260
-      ]
-    },
-    {
-      "parameters": {
-        "content": "Already processed or signature rejected - logged by triage-api, nothing to do."
-      },
-      "id": "9d240a97-5806-408f-ba99-eed374ed78f2",
-      "name": "NoOp: duplicate / bad signature",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        760,
-        400
-      ]
+        3100,
+        -200
+      ],
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
     "Webhook: slack-actions": {
+      "main": [
+        [
+          {
+            "node": "Code: Extract raw body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Extract raw body": {
       "main": [
         [
           {
@@ -496,101 +628,170 @@
       "main": [
         [
           {
-            "node": "HubSpot: Search Contact",
+            "node": "HS: Search Contact",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Slack: Update Rejected",
+            "node": "Slack: Update (rejected)",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Slack: Update Expired",
+            "node": "Slack: Update (expired)",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "NoOp: duplicate / bad signature",
+            "node": "NoOp: duplicate / invalid_signature",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HubSpot: Search Contact": {
+    "HS: Search Contact": {
       "main": [
         [
           {
-            "node": "HubSpot: Upsert Contact",
+            "node": "IF: contact exists?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HubSpot: Upsert Contact": {
+    "IF: contact exists?": {
       "main": [
         [
           {
-            "node": "IF: sales_lead?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF: sales_lead?": {
-      "main": [
-        [
-          {
-            "node": "HubSpot: Create Company",
+            "node": "HS: Update Contact",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "HubSpot: Create Ticket",
+            "node": "HS: Create Contact",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HubSpot: Create Company": {
+    "HS: Update Contact": {
       "main": [
         [
           {
-            "node": "HTTP: CRM result success",
+            "node": "Code: Contact ID",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HubSpot: Create Ticket": {
+    "HS: Create Contact": {
       "main": [
         [
           {
-            "node": "HTTP: CRM result success",
+            "node": "Code: Contact ID",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTTP: CRM result success": {
+    "Code: Contact ID": {
       "main": [
         [
           {
-            "node": "Slack: Update Message",
+            "node": "IF: support_request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: support_request?": {
+      "main": [
+        [
+          {
+            "node": "HS: Create Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF: has company?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: has company?": {
+      "main": [
+        [
+          {
+            "node": "HS: Create Company",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code: Build CRM result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HS: Create Ticket": {
+      "main": [
+        [
+          {
+            "node": "Code: Build CRM result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HS: Create Company": {
+      "main": [
+        [
+          {
+            "node": "Code: Build CRM result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build CRM result": {
+      "main": [
+        [
+          {
+            "node": "HTTP: CRM result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: CRM result": {
+      "main": [
+        [
+          {
+            "node": "Slack: Update (final)",
             "type": "main",
             "index": 0
           }
@@ -599,13 +800,15 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "saveManualExecutions": true
+    "executionOrder": "v1"
   },
   "pinData": {},
   "meta": {
     "instanceId": "sanitized"
   },
   "active": false,
-  "tags": []
+  "tags": [],
+  "versionId": "a3830e4e-8089-5765-9233-c3eabdfdf260",
+  "id": "456852f1d24c5d",
+  "description": "Slack interactivity -> signature check + atomic approval -> HubSpot write (once) -> card update."
 }

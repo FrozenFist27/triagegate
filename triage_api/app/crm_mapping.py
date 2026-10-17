@@ -37,13 +37,14 @@ def domain_of(email: Optional[str]) -> Optional[str]:
 
 def contact_properties(triage: TriageResult) -> dict[str, Any]:
     first, last = split_name(triage.contact_name)
+    # HubSpot requires a valid email, so the "[TriageGate test]" marker goes on the name
+    last = f"{last} [TriageGate test]".strip()
     props: dict[str, Any] = {}
     if triage.contact_email:
         props["email"] = str(triage.contact_email)
     if first:
         props["firstname"] = first
-    if last:
-        props["lastname"] = last
+    props["lastname"] = last
     if triage.company:
         props["company"] = triage.company
     if triage.category == Category.sales_lead:

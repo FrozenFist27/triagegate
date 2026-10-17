@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 
 from .approvals import (
     decide,
+    decision_card,
     expire_due_approvals,
     get_approval,
     list_approvals,
@@ -113,7 +114,18 @@ def approvals_decide(body: DecideIn) -> DecideResponse:
     decided_by = user.get("username") or user.get("id") or "unknown"
     outcome, crm_payload = decide(approval_id, decision=decision, decided_by=decided_by)
     approval = get_approval(approval_id)
-    return DecideResponse(outcome=outcome, approval=approval, crm_payload=crm_payload)
+    headline = {
+        DecideOutcome.write_crm: f"Approved by {decided_by} - writing to HubSpot...",
+        DecideOutcome.rejected: f"Rejected by {decided_by}. No CRM record created.",
+        DecideOutcome.expired: "Expired - no action taken. Nothing was written to the CRM.",
+    }.get(outcome, "")
+    text, blocks = ("", [])
+    if headline and approval:
+        text, blocks = decision_card(approval["run_id"], headline)
+    return DecideResponse(
+        outcome=outcome, approval=approval, crm_payload=crm_payload,
+        slack_text=text, slack_blocks=blocks,
+    )
 
 
 @app.post("/approvals/{approval_id}/crm-result", dependencies=[Depends(require_token)])

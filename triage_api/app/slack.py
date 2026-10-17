@@ -167,3 +167,13 @@ def make_approval_message(
         triage_resp.triage, approval_id, triage_resp.run_id, expires_at
     )
     return blocks, slack_fallback_text(triage_resp.triage)
+
+
+def build_decision_blocks(headline: str, summary: str = "") -> list[dict[str, Any]]:
+    """Blocks that replace the approval card (buttons removed) after a decision."""
+    blocks: list[dict[str, Any]] = [
+        {"type": "section", "text": {"type": "mrkdwn", "text": f"*{headline}*"}}
+    ]
+    if summary:
+        blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": summary[:300]}]})
+    return blocks

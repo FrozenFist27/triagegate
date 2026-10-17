@@ -38,7 +38,7 @@ def support(**over):
 def test_lead_maps_to_contact_and_company():
     p = build_crm_payload(lead(), subject="Demo request", run_id="r1")
     assert p["contact"]["email"] == "jane@acme-widgets.example.com"
-    assert p["contact"]["firstname"] == "Jane" and p["contact"]["lastname"] == "Doe"
+    assert p["contact"]["firstname"] == "Jane" and p["contact"]["lastname"] == "Doe [TriageGate test]"
     assert p["contact"]["hs_lead_status"] == "NEW"
     assert p["contact"]["lifecyclestage"] == "lead"
     assert p["company"]["name"].startswith(TEST_PREFIX)
@@ -96,5 +96,5 @@ def test_no_invented_contact_email():
 def test_contact_properties_direct():
     props = contact_properties(support())
     assert props["firstname"] == "Sam"
-    assert props["lastname"] == "Ito"
+    assert props["lastname"] == "Ito [TriageGate test]"
     assert "hs_lead_status" not in props  # support is not a lead

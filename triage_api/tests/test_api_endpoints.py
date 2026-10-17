@@ -199,3 +199,66 @@ def test_events_logged(client, auth, db_path):
         assert "approval_created" in names
     finally:
         triage_mod.get_client = original
+
+
+def _make_approval(client, auth, monkeypatch, msg_id="api-card-1"):
+    from app import triage as triage_mod
+
+    monkeypatch.setattr(triage_mod, "get_client", lambda *a, **k: FakeLLMClient())
+    body = {
+        "message_id": msg_id, "source": "webhook",
+        "from_email": "jane@acme-widgets.example.com", "from_name": "Jane Doe",
+        "subject": "Demo please", "body_text": "Can we book a demo next week?",
+        "received_at": "2026-10-17T10:00:00+00:00",
+    }
+    return client.post("/triage", json=body, headers=auth).json()
+
+
+def _click(client, auth, approval_id, action):
+    payload = {"actions": [{"action_id": action, "value": approval_id}],
+               "user": {"id": "U1", "username": "tester"}}
+    raw = "payload=" + json.dumps(payload)
+    ts = str(int(time.time()))
+    return client.post("/approvals/decide", headers=auth,
+                       json={"raw_body": raw, "signature": sign(raw, ts), "timestamp": ts}).json()
+
+
+def test_decide_returns_slack_card_and_ticket_subject_has_marker(client, auth, monkeypatch):
+    data = _make_approval(client, auth, monkeypatch)
+    out = _click(client, auth, data["approval_id"], "triage_approve")
+    assert out["outcome"] == "write_crm"
+    assert "Approved by tester" in out["slack_text"]
+    assert out["slack_blocks"] and out["slack_blocks"][0]["type"] == "section"
+    assert out["crm_payload"]["contact"]["lastname"].endswith("[TriageGate test]")
+    assert out["crm_payload"]["run_id"] == data["run_id"]
+
+
+def test_reject_returns_card_and_second_click_is_duplicate(client, auth, monkeypatch):
+    data = _make_approval(client, auth, monkeypatch, "api-card-2")
+    out = _click(client, auth, data["approval_id"], "triage_reject")
+    assert out["outcome"] == "rejected" and out["crm_payload"] is None
+    assert "Rejected by tester" in out["slack_text"]
+    again = _click(client, auth, data["approval_id"], "triage_approve")
+    assert again["outcome"] == "duplicate" and again["crm_payload"] is None
+
+
+def test_expire_returns_slack_text(client, auth, monkeypatch, db_path):
+    import sqlite3
+
+    data = _make_approval(client, auth, monkeypatch, "api-card-3")
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE approvals SET expires_at='2000-01-01T00:00:00+00:00'")
+    conn.commit()
+    conn.close()
+    r = client.post("/approvals/expire", headers=auth).json()
+    assert r["count"] == 1 and "Expired" in r["expired"][0]["slack_text"]
+    out = _click(client, auth, data["approval_id"], "triage_approve")
+    assert out["outcome"] == "expired" and out["crm_payload"] is None
+
+
+def test_unpersisted_run_creates_no_approval(db_path, sample_email):
+    from app.llm.fake_client import FakeLLMClient
+    from app.triage import run_triage
+
+    r = run_triage(sample_email(), client=FakeLLMClient(), persist=False)
+    assert r.route.value == "approval" and r.approval_id is None

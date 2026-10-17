@@ -17,11 +17,14 @@ services:
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168
       # consumed by the workflow expressions ($env.X) - passed through, never printed
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
       - TRIAGE_API_TOKEN=${TRIAGE_API_TOKEN}
+      - N8N_INGEST_TOKEN=${N8N_INGEST_TOKEN}
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
       - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
       - SLACK_APPROVAL_CHANNEL_ID=${SLACK_APPROVAL_CHANNEL_ID}
       - HUBSPOT_SERVICE_KEY=${HUBSPOT_SERVICE_KEY}
+      - HUBSPOT_API_BASE=${HUBSPOT_API_BASE:-}
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n/workflows:/workflows
@@ -41,6 +44,14 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./eval:/app/eval
+
+  # Local HubSpot stand-in used ONLY to prove idempotency while the real service key
+  # lacks write scopes:  HUBSPOT_API_BASE=http://hubspot-mock:8010 docker compose --profile mock up -d
+  hubspot-mock:
+    profiles: ["mock"]
+    build: ./tools/hubspot_mock
+    ports:
+      - "8010:8010"
 
   # Optional: IMAP live trigger only. Disabled by default - enable with:
   #   docker compose --profile imap up -d

@@ -7,13 +7,13 @@
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 5
+              "minutesInterval": 1
             }
           ]
         }
       },
-      "id": "8280e0f8-b315-43a4-8c38-601c19a09f9e",
-      "name": "Schedule: every 5 min",
+      "id": "2f07a7c0-516e-533b-8556-0d3a4c59f746",
+      "name": "Schedule: every minute",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -25,9 +25,6 @@
       "parameters": {
         "method": "POST",
         "url": "http://triage-api:8000/approvals/expire",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -37,10 +34,15 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ '{}' }}"
       },
-      "id": "167cafda-2ba8-4b8c-ae0b-233f2b3f3c29",
-      "name": "HTTP: Expire",
+      "id": "b77b15c1-15b2-5db8-bcce-bf604a69ac2e",
+      "name": "HTTP: Expire overdue",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -51,14 +53,12 @@
     {
       "parameters": {
         "fieldToSplitOut": "expired",
-        "options": {
-          "destinationFieldNameName": "expired"
-        }
+        "options": {}
       },
-      "id": "e369555a-0396-4002-8989-3bc5ec036602",
+      "id": "995fe622-5cde-5292-9189-b8caa0c2a8de",
       "name": "Split Out: expired",
       "type": "n8n-nodes-base.splitOut",
-      "typeVersion": 2,
+      "typeVersion": 1,
       "position": [
         480,
         0
@@ -66,11 +66,41 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "a895f286-e27e-5e73-96c2-015f97cb3c64",
+              "leftValue": "={{ $json.slack_ts }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dd456878-33a6-52da-a59d-74025896c1b2",
+      "name": "IF: has Slack ref?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://slack.com/api/chat.update",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.slack_channel && $json.slack_ts ? JSON.stringify({ channel: $json.slack_channel, ts: $json.slack_ts, text: 'Expired - no action taken.' }) : '{}' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -84,32 +114,37 @@
             }
           ]
         },
-        "options": {},
-        "onError": "continueRegularOutput"
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $json.slack_channel, ts: $json.slack_ts, text: $json.slack_text, blocks: $json.slack_blocks }) }}"
       },
-      "id": "d96c24fe-8da5-4bb4-98d9-37632debae51",
-      "name": "Slack: Mark Expired",
+      "id": "a1fd78c5-389b-5887-ac9c-4ab77bc0c7cd",
+      "name": "Slack: Update (expired)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        720,
-        0
-      ]
+        960,
+        -60
+      ],
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
-    "Schedule: every 5 min": {
+    "Schedule: every minute": {
       "main": [
         [
           {
-            "node": "HTTP: Expire",
+            "node": "HTTP: Expire overdue",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTTP: Expire": {
+    "HTTP: Expire overdue": {
       "main": [
         [
           {
@@ -124,7 +159,18 @@
       "main": [
         [
           {
-            "node": "Slack: Mark Expired",
+            "node": "IF: has Slack ref?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: has Slack ref?": {
+      "main": [
+        [
+          {
+            "node": "Slack: Update (expired)",
             "type": "main",
             "index": 0
           }
@@ -133,13 +179,15 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "saveManualExecutions": true
+    "executionOrder": "v1"
   },
   "pinData": {},
   "meta": {
     "instanceId": "sanitized"
   },
   "active": false,
-  "tags": []
+  "tags": [],
+  "versionId": "ba4d4f1e-9f2e-5fa4-b624-6300147dc5fb",
+  "id": "0d541ab7225854",
+  "description": "Every minute: expire overdue approvals (TTL 24h prod / 2 min demo) and update the Slack cards."
 }
