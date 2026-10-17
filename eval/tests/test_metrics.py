@@ -109,5 +109,5 @@ def test_latency_and_cost():
     )
     assert cost["emails"] == 10
     assert cost["usd_total"] > 0
-    # 500 uncached @0.10 + 500 cached @0.01 + 200 out @0.50 = 0.05+0.005+0.1 = 0.155 /MTok*10
-    assert abs(cost["usd_total"] - 0.00155) < 1e-9
+    # input_tokens are uncached: 1000@0.10 + 500 cached@0.01 + 200 out@0.50 = 205/1e6 per email, x10
+    assert abs(cost["usd_total"] - 0.00205) < 1e-9

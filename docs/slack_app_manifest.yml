@@ -1,0 +1,21 @@
+# Slack app manifest for TriageGate (no secrets). Create via: api.slack.com/apps -> Create New App -> From a manifest.
+display_information:
+  name: triagegate
+  description: Human approval for AI-triaged inbound email (portfolio demo, synthetic data)
+  background_color: "#1f2937"
+features:
+  bot_user:
+    display_name: triagegate
+    always_online: false
+oauth_config:
+  scopes:
+    bot:
+      - chat:write          # post the approval card and update it after a decision
+settings:
+  interactivity:
+    is_enabled: true
+    # Replace with your cloudflared quick-tunnel URL each session:
+    request_url: https://REPLACE-ME.trycloudflare.com/webhook/slack-actions
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

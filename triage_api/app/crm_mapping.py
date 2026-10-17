@@ -17,6 +17,10 @@ _FREE_MAIL = {
 TEST_PREFIX = "[TriageGate test] "  # every record this demo creates is clearly marked
 
 
+def _mark(text: str) -> str:
+    return text if text.startswith(TEST_PREFIX.strip()) else TEST_PREFIX + text
+
+
 def split_name(full: Optional[str]) -> tuple[str, str]:
     if not full:
         return "", ""
@@ -70,7 +74,7 @@ def ticket_properties(triage: TriageResult, subject: str, run_id: str) -> dict[s
         "hs_pipeline": "0",
         "hs_pipeline_stage": "1",
         "hs_ticket_priority": priority,
-        "subject": TEST_PREFIX + (subject or triage.request_summary)[:190],
+        "subject": _mark(subject or triage.request_summary)[:200],
     }
 
 

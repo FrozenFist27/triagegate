@@ -1,0 +1,583 @@
+{
+  "generated_at": "2026-10-17T17:05:16.307992+00:00",
+  "run_tag": "eval-2026-10-17",
+  "mode": "n8n",
+  "dataset": "eval\\dataset\\emails.jsonl",
+  "n_emails": 40,
+  "n_scored": 40,
+  "n_errors": 0,
+  "classification": {
+    "accuracy": 1.0,
+    "per_class": {
+      "sales_lead": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 14
+      },
+      "support_request": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 14
+      },
+      "invoice": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 6
+      },
+      "spam": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 6
+      }
+    },
+    "confusion_matrix": {
+      "sales_lead": {
+        "sales_lead": 14,
+        "support_request": 0,
+        "invoice": 0,
+        "spam": 0
+      },
+      "support_request": {
+        "sales_lead": 0,
+        "support_request": 14,
+        "invoice": 0,
+        "spam": 0
+      },
+      "invoice": {
+        "sales_lead": 0,
+        "support_request": 0,
+        "invoice": 6,
+        "spam": 0
+      },
+      "spam": {
+        "sales_lead": 0,
+        "support_request": 0,
+        "invoice": 0,
+        "spam": 6
+      }
+    },
+    "predicted_distribution": {
+      "sales_lead": 14,
+      "support_request": 14,
+      "invoice": 6,
+      "spam": 6
+    },
+    "label_distribution": {
+      "sales_lead": 14,
+      "support_request": 14,
+      "invoice": 6,
+      "spam": 6
+    }
+  },
+  "extraction": {
+    "company": {
+      "accuracy": 0.9643,
+      "correct": 27,
+      "total": 28,
+      "misses": [
+        {
+          "id": "eval-009",
+          "expected": "Larkfield",
+          "got": "Larkfield IT"
+        }
+      ]
+    },
+    "contact_email": {
+      "accuracy": 1.0,
+      "correct": 28,
+      "total": 28,
+      "misses": []
+    },
+    "urgency": {
+      "accuracy": 0.75,
+      "correct": 21,
+      "total": 28,
+      "misses": [
+        {
+          "id": "eval-005",
+          "expected": "low",
+          "got": "medium"
+        },
+        {
+          "id": "eval-007",
+          "expected": "low",
+          "got": "medium"
+        },
+        {
+          "id": "eval-009",
+          "expected": "low",
+          "got": "medium"
+        },
+        {
+          "id": "eval-016",
+          "expected": "medium",
+          "got": "low"
+        },
+        {
+          "id": "eval-020",
+          "expected": "low",
+          "got": "medium"
+        },
+        {
+          "id": "eval-023",
+          "expected": "low",
+          "got": "medium"
+        },
+        {
+          "id": "eval-024",
+          "expected": "medium",
+          "got": "high"
+        }
+      ]
+    }
+  },
+  "schema": {
+    "total": 40,
+    "first_attempt_valid": 40,
+    "first_attempt_valid_rate": 1.0,
+    "runs_with_retries": 0,
+    "needs_review": 0
+  },
+  "latency_ms": {
+    "p50": 1420.5,
+    "p95": 1599.65,
+    "mean": 1437.2,
+    "n": 40
+  },
+  "e2e_ms": {
+    "p50": 2582.5,
+    "p95": 4257.05,
+    "mean": 2723.05,
+    "n": 40
+  },
+  "cost": {
+    "emails": 40,
+    "input_tokens_total": 6911,
+    "output_tokens_total": 6137,
+    "cache_read_tokens_total": 115520,
+    "input_tokens_per_email": 172.8,
+    "cache_read_tokens_per_email": 2888.0,
+    "output_tokens_per_email": 153.4,
+    "usd_total": 0.004915,
+    "usd_per_email": 0.000123,
+    "price_in_per_mtok": 0.1,
+    "price_out_per_mtok": 0.5
+  },
+  "reliability": {
+    "approvals_created": 28,
+    "clicks_via": "signed synthetic Slack payloads -> n8n webhook",
+    "single_approve": {
+      "n": 4,
+      "crm_written": 4,
+      "crm_write_rows_each": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "double_approve": {
+      "n": 5,
+      "concurrent_trials": 1,
+      "clicks_registered_each": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "crm_write_rows_each": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "duplicate_crm_writes": 0,
+      "duplicate_clicks_ignored": 5
+    },
+    "reject": {
+      "n": 3,
+      "status_rejected": 3,
+      "crm_writes": 0
+    },
+    "bad_signature": {
+      "rejected_events_logged": 1,
+      "approval_still_pending": true
+    },
+    "crm_write_rows_total": 9,
+    "hubspot": {
+      "target": "mock",
+      "counts": {
+        "contacts": 9,
+        "companies": 4,
+        "tickets": 4
+      },
+      "log": [
+        {
+          "op": "create",
+          "obj": "contacts",
+          "id": "1000"
+        },
+        {
+          "op": "create",
+          "obj": "companies",
+          "id": "1001"
+        },
+        {
+          "op": "create",
+          "obj": "contacts",
+          "id": "1002"
+        },
+        {
+          "op": "create",
+          "obj": "companies",
+          "id": "1003"
+        },
+        {
+          "op": "create",
+          "obj": "contacts",
+          "id": "1004"
+        },
+        {
+          "op": "create",
+          "obj": "tickets",
+          "id": "1005"
+        },
+        {
+          "op": "create",
+          "obj": "contacts",
+          "id": "1006"
+        },
+        {
+          "op": "create",
+          "obj": "tickets",
+          "id": "1007"
+        },
+        {
+          "op": "create",
+          "obj": "contacts",
+          "id": "1008"
+        },
+        {
+          "op": "create",
+          "obj": "companies",
+          "id": "1009"
+        },
+        {
+          "op": "create",
+          "obj": "contacts",
+          "id": "1010"
+        },
+        {
+          "op": "create",
+          "obj": "companies",
+          "id": "1011"
+        },
+        {
+          "op": "create",
+          "obj": "contacts",
+          "id": "1012"
+        },
+        {
+          "op": "create",
+          "obj": "contacts",
+          "id": "1013"
+        },
+        {
+          "op": "create",
+          "obj": "tickets",
+          "id": "1014"
+        },
+        {
+          "op": "create",
+          "obj": "contacts",
+          "id": "1015"
+        },
+        {
+          "op": "create",
+          "obj": "tickets",
+          "id": "1016"
+        }
+      ],
+      "records": {
+        "contacts": {
+          "1000": {
+            "properties": {
+              "email": "mark.ilves@northwind-logistics.example.org",
+              "firstname": "Mark",
+              "lastname": "Ilves [TriageGate test]",
+              "company": "Northwind Logistics",
+              "hs_lead_status": "NEW",
+              "lifecyclestage": "lead"
+            },
+            "associations": []
+          },
+          "1002": {
+            "properties": {
+              "email": "procurement@harborline.example.com",
+              "firstname": "Elena",
+              "lastname": "Duarte [TriageGate test]",
+              "company": "Harborline Freight",
+              "hs_lead_status": "NEW",
+              "lifecyclestage": "lead"
+            },
+            "associations": []
+          },
+          "1004": {
+            "properties": {
+              "email": "dev@acme-widgets.example.com",
+              "firstname": "Priya",
+              "lastname": "Nair [TriageGate test]",
+              "company": "Acme Widgets"
+            },
+            "associations": []
+          },
+          "1006": {
+            "properties": {
+              "email": "jess.moreau@northwind-logistics.example.org",
+              "firstname": "Jess",
+              "lastname": "Moreau [TriageGate test]",
+              "company": "Northwind Logistics"
+            },
+            "associations": []
+          },
+          "1008": {
+            "properties": {
+              "email": "tomas.arendt@finch-saas.example.io",
+              "firstname": "Tomas",
+              "lastname": "Arendt [TriageGate test]",
+              "company": "Finch SaaS",
+              "hs_lead_status": "NEW",
+              "lifecyclestage": "lead"
+            },
+            "associations": []
+          },
+          "1010": {
+            "properties": {
+              "email": "lucia.mendoza@senal-logistica.example.mx",
+              "firstname": "Lucia",
+              "lastname": "Mendoza [TriageGate test]",
+              "company": "Senal Logistica",
+              "hs_lead_status": "NEW",
+              "lifecyclestage": "lead"
+            },
+            "associations": []
+          },
+          "1012": {
+            "properties": {
+              "email": "jordan.rivera@gmail.com",
+              "firstname": "Jordan",
+              "lastname": "Rivera [TriageGate test]",
+              "hs_lead_status": "NEW",
+              "lifecyclestage": "lead"
+            },
+            "associations": []
+          },
+          "1013": {
+            "properties": {
+              "email": "it@harborline.example.com",
+              "firstname": "Felix",
+              "lastname": "Braun [TriageGate test]",
+              "company": "Harborline Freight"
+            },
+            "associations": []
+          },
+          "1015": {
+            "properties": {
+              "email": "ana.torres@finch-saas.example.io",
+              "firstname": "Ana",
+              "lastname": "Torres [TriageGate test]",
+              "company": "Finch SaaS"
+            },
+            "associations": []
+          }
+        },
+        "companies": {
+          "1001": {
+            "properties": {
+              "name": "[TriageGate test] Northwind Logistics",
+              "domain": "northwind-logistics.example.org"
+            },
+            "associations": [
+              {
+                "to": {
+                  "id": "1000"
+                },
+                "types": [
+                  {
+                    "associationCategory": "HUBSPOT_DEFINED",
+                    "associationTypeId": 280
+                  }
+                ]
+              }
+            ]
+          },
+          "1003": {
+            "properties": {
+              "name": "[TriageGate test] Harborline Freight",
+              "domain": "harborline.example.com"
+            },
+            "associations": [
+              {
+                "to": {
+                  "id": "1002"
+                },
+                "types": [
+                  {
+                    "associationCategory": "HUBSPOT_DEFINED",
+                    "associationTypeId": 280
+                  }
+                ]
+              }
+            ]
+          },
+          "1009": {
+            "properties": {
+              "name": "[TriageGate test] Finch SaaS",
+              "domain": "finch-saas.example.io"
+            },
+            "associations": [
+              {
+                "to": {
+                  "id": "1008"
+                },
+                "types": [
+                  {
+                    "associationCategory": "HUBSPOT_DEFINED",
+                    "associationTypeId": 280
+                  }
+                ]
+              }
+            ]
+          },
+          "1011": {
+            "properties": {
+              "name": "[TriageGate test] Senal Logistica",
+              "domain": "senal-logistica.example.mx"
+            },
+            "associations": [
+              {
+                "to": {
+                  "id": "1010"
+                },
+                "types": [
+                  {
+                    "associationCategory": "HUBSPOT_DEFINED",
+                    "associationTypeId": 280
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "tickets": {
+          "1005": {
+            "properties": {
+              "content": "Paying Growth-plan customer reports production /v2/sync API returning HTTP 500 since 06:10 UTC, stalling their order feed.\n\n[TriageGate test] run 1d4304d9-1f15-48b5-b1a9-bab37d48f5aa",
+              "hs_pipeline": "0",
+              "hs_pipeline_stage": "1",
+              "hs_ticket_priority": "HIGH",
+              "subject": "[TriageGate test] API returning 500 since this morning"
+            },
+            "associations": [
+              {
+                "to": {
+                  "id": "1004"
+                },
+                "types": [
+                  {
+                    "associationCategory": "HUBSPOT_DEFINED",
+                    "associationTypeId": 16
+                  }
+                ]
+              }
+            ]
+          },
+          "1007": {
+            "properties": {
+              "content": "Existing Growth plan customer reports an upgrade prompt appearing incorrectly on the dashboard and asks whether Growth includes SSO.\n\n[TriageGate test] run 9a6fde19-c58f-46c3-99ed-cf5f8069bc40",
+              "hs_pipeline": "0",
+              "hs_pipeline_stage": "1",
+              "hs_ticket_priority": "LOW",
+              "subject": "[TriageGate test] Upgrade banner showing on Growth plan + SSO question"
+            },
+            "associations": [
+              {
+                "to": {
+                  "id": "1006"
+                },
+                "types": [
+                  {
+                    "associationCategory": "HUBSPOT_DEFINED",
+                    "associationTypeId": 16
+                  }
+                ]
+              }
+            ]
+          },
+          "1014": {
+            "properties": {
+              "content": "SSO sign-in failing for the whole team since the morning password rotation; IdP assertion succeeds but the app returns 'invalid session' for about 40 users.\n\n[TriageGate test] run 47dd3a17-1982-418e-a83b-ac608faff153",
+              "hs_pipeline": "0",
+              "hs_pipeline_stage": "1",
+              "hs_ticket_priority": "HIGH",
+              "subject": "[TriageGate test] Locked out of SSO - whole team affected"
+            },
+            "associations": [
+              {
+                "to": {
+                  "id": "1013"
+                },
+                "types": [
+                  {
+                    "associationCategory": "HUBSPOT_DEFINED",
+                    "associationTypeId": 16
+                  }
+                ]
+              }
+            ]
+          },
+          "1016": {
+            "properties": {
+              "content": "Existing user reports CSV export of the monthly report is missing the last three days of rows, reproducible in two browsers, and asks if it is a known issue.\n\n[TriageGate test] run 85c90e1b-761f-4fbf-9666-3ae91e88b30b",
+              "hs_pipeline": "0",
+              "hs_pipeline_stage": "1",
+              "hs_ticket_priority": "MEDIUM",
+              "subject": "[TriageGate test] CSV export missing rows"
+            },
+            "associations": [
+              {
+                "to": {
+                  "id": "1015"
+                },
+                "types": [
+                  {
+                    "associationCategory": "HUBSPOT_DEFINED",
+                    "associationTypeId": 16
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "approved_approvals": [
+      "0fb71f89-d5d0-4df5-9033-efb2d26c9726",
+      "19f3be5e-785b-43c3-bc2e-c7dc822e5338",
+      "43f81cf1-26e0-4a98-ba08-ccd265a62400",
+      "539052e5-fd06-4d10-a2ac-e39a600b6c59",
+      "76bf083f-c9d4-4d1f-b4da-d9a46f681341",
+      "c25447d2-4975-4d37-a9ef-29987e1aa112",
+      "d4d97744-2ad3-4957-8641-3532ad8719a4",
+      "de400b21-582e-4e6d-bc11-4cd60f929062",
+      "ebc15a57-dcef-4e5f-825f-2dd39464bff0"
+    ]
+  },
+  "extraction_scope": "sales_lead + support_request emails only (the ones that can reach the CRM)"
+}

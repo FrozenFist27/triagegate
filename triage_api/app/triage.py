@@ -37,6 +37,8 @@ _FREE_MAIL = {
     "protonmail.com", "icloud.com", "aol.com", "gmx.com", "mail.com", "live.com",
 }
 
+# only exact system mailboxes are refused as a contact; 'no-reply-user@' is a real person
+_NO_REPLY_LOCALPARTS = {"noreply", "no-reply", "donotreply", "do-not-reply", "mailer-daemon", "postmaster"}
 _APPROVAL_CATEGORIES = {Category.sales_lead, Category.support_request}
 
 
@@ -107,7 +109,8 @@ def apply_business_rules(result: TriageResult, email: InboundEmail) -> tuple[Tri
 
     if not result.contact_email:
         from_email = (email.from_email or "").strip().lower()
-        if from_email and "@" in from_email and not from_email.startswith("no-reply"):
+        local = from_email.split("@", 1)[0]
+        if from_email and "@" in from_email and local not in _NO_REPLY_LOCALPARTS:
             data = result.model_dump()
             data["contact_email"] = from_email
             result = TriageResult.model_validate(data)

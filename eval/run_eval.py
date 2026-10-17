@@ -15,8 +15,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
-import hmac
 import json
 import os
 import sys
@@ -81,12 +79,6 @@ def http_json(url: str, payload: dict | None = None, headers: dict | None = None
             return e.code, body
 
 
-def sign_slack(raw_body: str, secret: str, ts: str) -> str:
-    return "v0=" + hmac.new(
-        secret.encode("utf-8"), f"v0:{ts}:{raw_body}".encode(), hashlib.sha256
-    ).hexdigest()
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description="TriageGate eval runner")
     ap.add_argument("--mode", choices=["api", "n8n"], default="api")
@@ -95,7 +87,8 @@ def main() -> int:
     ap.add_argument("--dataset", default=str(EVAL_DIR / "dataset" / "emails.jsonl"))
     ap.add_argument("--run-tag", default=datetime.now(UTC).strftime("%Y-%m-%d"))
     ap.add_argument("--limit", type=int, default=0, help="0 = all")
-    ap.add_argument("--decide-url", default="", help="where signed Slack payloads are posted")
+    ap.add_argument("--slack-url", default="http://localhost:5678/webhook/slack-actions",
+                    help="n8n Slack-interactivity webhook that receives signed synthetic clicks")
     ap.add_argument("--simulate-clicks", action="store_true",
                     help="drive approve / double-approve / reject / expired paths")
     ap.add_argument("--concurrency", type=int, default=1,
@@ -117,7 +110,6 @@ def main() -> int:
     else:
         ingest_url = f"{api_base}/triage"
 
-    decide_url = (args.decide_url or f"{api_base}/approvals/decide").rstrip("/")
 
     rows = [json.loads(l) for l in Path(args.dataset).read_text(encoding="utf-8").splitlines() if l.strip()]
     if args.limit:
@@ -125,6 +117,9 @@ def main() -> int:
     print(f"Replaying {len(rows)} emails via {args.mode} -> {ingest_url} (run_tag={args.run_tag})")
 
     headers = {"X-Internal-Token": token}
+    ingest_headers = (
+        {"X-Ingest-Token": env.get("N8N_INGEST_TOKEN", "")} if args.mode == "n8n" else headers
+    )
     results: list[dict] = []
     t_start = time.time()
 
@@ -138,8 +133,10 @@ def main() -> int:
             "body_text": row["body_text"],
             "received_at": datetime.now(UTC).isoformat(),
         }
+        if args.mode == "n8n":
+            body["run_tag"] = args.run_tag
         t0 = time.time()
-        status, resp = http_json(ingest_url, body, headers=headers, timeout=120)
+        status, resp = http_json(ingest_url, body, headers=ingest_headers, timeout=120)
         e2e_ms = int((time.time() - t0) * 1000)
         if status != 200 or not isinstance(resp, dict):
             print(f"  [{i}/{len(rows)}] {row['id']} FAILED http={status}: {resp}", file=sys.stderr)
@@ -166,12 +163,15 @@ def main() -> int:
               f"{'OK' if ok else 'MISS'} (attempts={resp.get('attempts')}, {e2e_ms}ms)")
 
     # ---- metrics -------------------------------------------------------------
-    scored = [r for r in results if r.get("pred") is not None or r.get("error")]
+    # every email counts; a quarantined (needs_review) email is a miss, never silently dropped
+    scored = list(results)
     y_true = [r["label"]["category"] for r in scored]
     y_pred = [(r.get("pred") or {}).get("category", "needs_review") for r in scored]
     cm = confusion_matrix(y_true, y_pred, labels=CATEGORIES)
     cls_scores = per_class_scores(cm)
-    fa = field_accuracy([{"id": r["id"], "label": r["label"], "pred": r.get("pred")} for r in scored])
+    # extraction is only meaningful (and only written to the CRM) for lead / support emails
+    fa = field_accuracy([{"id": r["id"], "label": r["label"], "pred": r.get("pred")} for r in scored
+                         if r["label"]["category"] in ("sales_lead", "support_request")])
 
     schema = schema_stats([
         {"attempts": r.get("attempts") or 1,
@@ -231,7 +231,7 @@ def main() -> int:
 
     clicks = {}
     if args.simulate_clicks:
-        clicks = simulate_clicks(results, decide_url, token, signing_secret)
+        clicks = simulate_clicks(results, args.slack_url, api_base, token, signing_secret)
         summary["reliability"] = clicks
 
     (out_dir / "summary.json").write_text(
@@ -255,116 +255,124 @@ def main() -> int:
     return 0
 
 
-def simulate_clicks(results: list[dict], decide_url: str, token: str, signing_secret: str) -> dict:
-    """Drive approve / double-approve / reject / expired through the decide endpoint
-    with correctly signed synthetic Slack payloads (no real Slack click needed)."""
-    headers = {"X-Internal-Token": token}
-    approvals = [r for r in results if r.get("approval_id")]
-    out = {
-        "approvals_created": len(approvals),
-        "approved": 0,
-        "rejected": 0,
-        "duplicates": 0,
-        "expired_clicks": 0,
-        "invalid_signatures": 0,
-        "crm_writes": 0,
-        "double_approve_trials": 0,
-        "double_approve_single_write": 0,
+def hubspot_state() -> dict:
+    """Record counts from the CRM actually in use (mock if HUBSPOT_API_BASE is set)."""
+    base = os.environ.get("HUBSPOT_API_BASE") or load_env_file(PROJECT_ROOT / ".env").get("HUBSPOT_API_BASE")
+    if base and "hubspot-mock" in base:
+        st, resp = http_json("http://localhost:8010/_mock/state", method="GET")
+        if st == 200 and isinstance(resp, dict):
+            return {"target": "mock", **resp}
+    return {"target": "real", "note": "count real records via scripts/count_hubspot_test_records.py"}
+
+
+def wait_for(fn, timeout=40.0, every=1.0):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        v = fn()
+        if v:
+            return v
+        time.sleep(every)
+    return None
+
+
+def simulate_clicks(results: list[dict], slack_url: str, api_base: str, token: str,
+                    signing_secret: str) -> dict:
+    """Signed synthetic Slack clicks -> n8n WF2 (full path incl. HubSpot).
+
+    N: 4 single approvals, 5 double-approve trials (the last is two simultaneous clicks),
+    3 rejections, 1 bad-signature click. Nothing is clicked in real Slack.
+    """
+    import threading
+
+    import httpx
+
+    sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+    from simulate_click import signed_request
+
+    hdr = {"X-Internal-Token": token}
+
+    def post_click(approval_id, action="approve", secret=None, ts=None):
+        raw, headers = signed_request(approval_id, action, secret or signing_secret, "eval-runner", ts)
+        return httpx.post(slack_url, content=raw, headers=headers, timeout=30).status_code
+
+    def approval(aid):
+        _st, rows = http_json(f"{api_base}/approvals", headers=hdr, method="GET")
+        return next((a for a in rows if a["approval_id"] == aid), None)
+
+    def settled(aid):
+        a = approval(aid)
+        return a if a and a["status"] in ("crm_written", "crm_failed", "rejected") else None
+
+    def writes():
+        return http_json(f"{api_base}/crm-writes", headers=hdr, method="GET")[1]
+
+    def events():
+        return http_json(f"{api_base}/events?limit=2000", headers=hdr, method="GET")[1]
+
+    pool = [r for r in results if r.get("approval_id")]
+    leads = [r for r in pool if (r["pred"] or {}).get("category") == "sales_lead"]
+    sups = [r for r in pool if (r["pred"] or {}).get("category") == "support_request"]
+    single = leads[:2] + sups[:2]
+    double = leads[2:5] + sups[2:4]
+    rejects = leads[5:6] + sups[4:6]
+    out: dict = {"approvals_created": len(pool), "clicks_via": "signed synthetic Slack payloads -> n8n webhook"}
+
+    for r in single:
+        post_click(r["approval_id"])
+    for r in double[:4]:
+        post_click(r["approval_id"])
+        post_click(r["approval_id"])          # the double click
+    t = [threading.Thread(target=post_click, args=(double[4]["approval_id"],)) for _ in range(2)]
+    [x.start() for x in t]
+    [x.join() for x in t]                     # the concurrent double click
+    for r in rejects:
+        post_click(r["approval_id"], "reject")
+
+    for r in single + double + rejects:
+        wait_for(lambda a=r["approval_id"]: settled(a))
+    time.sleep(3)
+
+    wr = writes()
+    per_approval = Counter(w["approval_id"] for w in wr)
+    ev = events()
+
+    def clicks_of(aid):
+        return (approval(aid) or {}).get("click_count")
+
+    out["single_approve"] = {
+        "n": len(single),
+        "crm_written": sum(1 for r in single if (approval(r["approval_id"]) or {}).get("status") == "crm_written"),
+        "crm_write_rows_each": [per_approval.get(r["approval_id"], 0) for r in single],
     }
-    if not approvals:
-        return out
+    out["double_approve"] = {
+        "n": len(double),
+        "concurrent_trials": 1,
+        "clicks_registered_each": [clicks_of(r["approval_id"]) for r in double],
+        "crm_write_rows_each": [per_approval.get(r["approval_id"], 0) for r in double],
+        "duplicate_crm_writes": sum(max(per_approval.get(r["approval_id"], 0) - 1, 0) for r in double),
+        "duplicate_clicks_ignored": sum(1 for e in ev if e["event"] == "click_duplicate"),
+    }
+    out["reject"] = {
+        "n": len(rejects),
+        "status_rejected": sum(1 for r in rejects if (approval(r["approval_id"]) or {}).get("status") == "rejected"),
+        "crm_writes": sum(per_approval.get(r["approval_id"], 0) for r in rejects),
+    }
 
-    def click(approval_id: str, action: str = "triage_approve", *, secret=None, ts=None):
-        payload = {
-            "actions": [{"action_id": action, "value": approval_id}],
-            "user": {"id": "U_EVAL", "username": "eval-runner"},
+    # bad signature on a still-pending approval must change nothing
+    spare = next((r for r in pool if (approval(r["approval_id"]) or {}).get("status") == "pending"), None)
+    sig_events_before = sum(1 for e in ev if e["event"] == "invalid_signature")
+    if spare:
+        post_click(spare["approval_id"], secret="wrong-secret")
+        time.sleep(3)
+        sig_after = sum(1 for e in events() if e["event"] == "invalid_signature")
+        out["bad_signature"] = {
+            "rejected_events_logged": sig_after - sig_events_before,
+            "approval_still_pending": (approval(spare["approval_id"]) or {}).get("status") == "pending",
         }
-        raw = "payload=" + json.dumps(payload)
-        stamp = ts or str(int(time.time()))
-        sig = sign_slack(raw, secret or signing_secret, stamp)
-        st, resp = http_json(
-            decide_url,
-            {"raw_body": raw, "signature": sig, "timestamp": stamp},
-            headers=headers,
-        )
-        return (resp or {}).get("outcome") if isinstance(resp, dict) else f"http_{st}"
-
-    # 1) single approve on the first half
-    for r in approvals[: len(approvals) // 2]:
-        outcome = click(r["approval_id"])
-        if outcome == "write_crm":
-            out["approved"] += 1
-            out["crm_writes"] += 1
-        elif outcome == "duplicate":
-            out["duplicates"] += 1
-
-    # 2) double-approve trials: click the SAME payload twice
-    for r in approvals[len(approvals) // 2: len(approvals) // 2 + 5]:
-        out["double_approve_trials"] += 1
-        o1 = click(r["approval_id"])
-        o2 = click(r["approval_id"])
-        if o1 == "write_crm" and o2 == "duplicate":
-            out["double_approve_single_write"] += 1
-        out["approved"] += 1 if o1 == "write_crm" else 0
-        out["duplicates"] += 1 if o2 == "duplicate" else 0
-        out["crm_writes"] += 1 if o1 == "write_crm" else 0
-
-    # 3) reject the remainder
-    for r in approvals[len(approvals) // 2 + 5:]:
-        outcome = click(r["approval_id"], action="triage_reject")
-        if outcome == "rejected":
-            out["rejected"] += 1
-        elif outcome == "duplicate":
-            out["duplicates"] += 1
-
-    # 4) a bad-signature click must be refused
-    if approvals:
-        o = click(approvals[0]["approval_id"], secret="wrong-secret")
-        if o == "invalid_signature":
-            out["invalid_signatures"] += 1
-
-    # 5) click on an expired approval
-    expired = expire_one(approvals, decide_url, token, signing_secret)
-    out["expired_clicks"] = 1 if expired else 0
-    out["expired_approvals_marked"] = expired
+    out["crm_write_rows_total"] = len(wr)
+    out["hubspot"] = hubspot_state()
+    out["approved_approvals"] = sorted({w["approval_id"] for w in wr})
     return out
-
-
-def expire_one(approvals: list[dict], decide_url: str, token: str, signing_secret: str) -> bool:
-    """Force one approval past its TTL, expire it, then click it."""
-    api_base = decide_url.rsplit("/approvals", 1)[0]
-    headers = {"X-Internal-Token": token}
-    target = approvals[-1]["approval_id"]
-
-    # move the expiry into the past using a tiny inline sqlite update when the db is local
-    db_path = PROJECT_ROOT / "data" / "triagegate.db"
-    if db_path.exists():
-        import sqlite3
-
-        conn = sqlite3.connect(db_path, timeout=15)
-        try:
-            conn.execute(
-                "UPDATE approvals SET expires_at='2000-01-01T00:00:00+00:00' WHERE approval_id=?",
-                (target,),
-            )
-            conn.commit()
-        finally:
-            conn.close()
-    else:
-        return False
-
-    st, resp = http_json(f"{api_base}/approvals/expire", {}, headers=headers)
-    if st != 200:
-        return False
-
-    payload = {"actions": [{"action_id": "triage_approve", "value": target}],
-               "user": {"id": "U_EVAL", "username": "eval-runner"}}
-    raw = "payload=" + json.dumps(payload)
-    stamp = str(int(time.time()))
-    sig = sign_slack(raw, signing_secret, stamp)
-    st, resp = http_json(decide_url, {"raw_body": raw, "signature": sig, "timestamp": stamp},
-                         headers=headers)
-    return isinstance(resp, dict) and resp.get("outcome") == "expired"
 
 
 if __name__ == "__main__":

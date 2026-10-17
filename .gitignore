@@ -11,9 +11,6 @@
 data/
 logs/*.jsonl
 !logs/.gitkeep
-eval/results/*.json
-eval/results/*.md
-eval/results/*.jsonl
 !eval/results/.gitkeep
 
 # python

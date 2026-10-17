@@ -149,19 +149,21 @@ def latency_stats(values: list[float]) -> dict[str, Any]:
 
 
 def cost_summary(token_rows: list[dict[str, Any]], price_in: float, price_out: float) -> dict[str, Any]:
-    """token_rows: {input_tokens, output_tokens, cache_read_tokens}"""
+    """token_rows: {input_tokens (uncached), output_tokens, cache_read_tokens}"""
     total_in = sum(r.get("input_tokens", 0) for r in token_rows)
     total_out = sum(r.get("output_tokens", 0) for r in token_rows)
     total_cached = sum(r.get("cache_read_tokens", 0) for r in token_rows)
     n = len(token_rows) or 1
-    billable = max(total_in - total_cached, 0)
-    usd = (billable * price_in + total_cached * price_in * 0.10 + total_out * price_out) / 1_000_000
+    # Anthropic reports input_tokens EXCLUDING cache reads; cache reads bill at 0.1x input.
+    # (Cache writes, ~1.25x on a ~3K-token prompt once per 5 min, are negligible and not tracked.)
+    usd = (total_in * price_in + total_cached * price_in * 0.10 + total_out * price_out) / 1_000_000
     return {
         "emails": len(token_rows),
         "input_tokens_total": total_in,
         "output_tokens_total": total_out,
         "cache_read_tokens_total": total_cached,
         "input_tokens_per_email": round(total_in / n, 1),
+        "cache_read_tokens_per_email": round(total_cached / n, 1),
         "output_tokens_per_email": round(total_out / n, 1),
         "usd_total": round(usd, 6),
         "usd_per_email": round(usd / n, 6),

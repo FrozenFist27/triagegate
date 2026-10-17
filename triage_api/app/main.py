@@ -173,3 +173,15 @@ def events(limit: int = Query(default=200, le=2000)) -> list[dict]:
         return [dict(r) for r in rows]
     finally:
         conn.close()
+
+
+@app.get("/crm-writes", dependencies=[Depends(require_token)])
+def crm_writes() -> list[dict]:
+    from .db import get_conn
+
+    conn = get_conn()
+    try:
+        rows = conn.execute("SELECT * FROM crm_writes ORDER BY id").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()

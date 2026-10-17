@@ -102,3 +102,20 @@ def test_never_valid_creates_no_approval(db_path):
     from app.approvals import get_approval_by_run
 
     assert get_approval_by_run(resp.run_id) is None
+
+
+def test_no_reply_user_address_is_a_valid_contact_fallback(db_path, sample_email):
+    """'no-reply-user@...' is a person (found by the eval); only exact system mailboxes are refused."""
+    import json
+
+    from app.llm.fake_client import VALID_DEFAULT, FakeLLMClient
+    from app.triage import run_triage
+
+    data = {**VALID_DEFAULT, "category": "support_request", "contact_email": None}
+    ok = run_triage(sample_email(message_id="nr-1", from_email="no-reply-user@cedaranalytics.example.ca"),
+                    client=FakeLLMClient(responder=lambda m: json.dumps(data)))
+    assert ok.status.value == "ok" and str(ok.triage.contact_email) == "no-reply-user@cedaranalytics.example.ca"
+
+    bad = run_triage(sample_email(message_id="nr-2", from_email="noreply@vendor.example.com"),
+                     client=FakeLLMClient(responder=lambda m: json.dumps(data)))
+    assert bad.status.value == "needs_review" and bad.approval_id is None

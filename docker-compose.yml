@@ -40,6 +40,9 @@ services:
       - .env
     environment:
       - DB_PATH=/app/data/triagegate.db
+      # overridable per run: LLM_FAULT_INJECTION=always_invalid, APPROVAL_TTL_MINUTES=2
+      - LLM_FAULT_INJECTION=${LLM_FAULT_INJECTION:-off}
+      - APPROVAL_TTL_MINUTES=${APPROVAL_TTL_MINUTES:-1440}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
