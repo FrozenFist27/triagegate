@@ -1,0 +1,3 @@
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/real_hubspot_check.py" = ["PLW1510","SIM115"]

@@ -298,7 +298,6 @@ def slack_update(name, pos, channel, ts, text, blocks):
 
 
 def wf2():
-    D = "$('HTTP: Decide').first().json"
     webhook = node("Webhook: slack-actions", "n8n-nodes-base.webhook", [0, 0],
                    {"httpMethod": "POST", "path": "slack-actions", "responseMode": "onReceived",
                     "responseCode": 200, "responseData": "noData", "options": {"rawBody": True}},
