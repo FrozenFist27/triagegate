@@ -19,9 +19,15 @@ from .base import LLMResponse
 
 
 class AnthropicClient:
-    def __init__(self, model: str = "claude-haiku-5-5", api_key: str = "", max_retries: int = 2):
+    def __init__(self, model: str = "claude-haiku-5-5", api_key: str = "", max_retries: int = 2,
+                 base_url: str = "https://api.anthropic.com"):
         self.model = model
-        self._client = anthropic.Anthropic(api_key=api_key or None, max_retries=max_retries)
+        self._client = anthropic.Anthropic(
+            api_key=api_key or None, max_retries=max_retries,
+            # explicit: never inherit a stray ANTHROPIC_BASE_URL from the shell, which would
+            # send the API key to a non-Anthropic host
+            base_url=base_url,
+        )
 
     def complete(
         self,

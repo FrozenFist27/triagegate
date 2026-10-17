@@ -257,7 +257,7 @@ def run_triage(
 
     # Approval creation lives here (not in the HTTP layer) so every entry point -
     # n8n webhook, eval direct mode, tests - produces the same object graph.
-    if route == Route.approval:
+    if persist and route == Route.approval:
         from .approvals import create_approval, get_approval
         from .slack import make_approval_message
 

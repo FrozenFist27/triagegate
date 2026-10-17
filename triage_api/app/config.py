@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     llm_provider: str = "anthropic"
     llm_model: str = "claude-haiku-5-5"
     anthropic_api_key: str = ""
+    llm_base_url: str = "https://api.anthropic.com"
     llm_max_attempts: int = 3
     llm_fault_injection: str = "off"  # off | first_attempt_invalid | always_invalid
     llm_price_in_per_mtok: float = 0.10

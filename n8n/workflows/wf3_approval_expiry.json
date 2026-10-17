@@ -1,0 +1,145 @@
+{
+  "name": "TriageGate - WF3 Approval Expiry",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "8280e0f8-b315-43a4-8c38-601c19a09f9e",
+      "name": "Schedule: every 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://triage-api:8000/approvals/expire",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $env.TRIAGE_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "167cafda-2ba8-4b8c-ae0b-233f2b3f3c29",
+      "name": "HTTP: Expire",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "expired",
+        "options": {
+          "destinationFieldNameName": "expired"
+        }
+      },
+      "id": "e369555a-0396-4002-8989-3bc5ec036602",
+      "name": "Split Out: expired",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.update",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.slack_channel && $json.slack_ts ? JSON.stringify({ channel: $json.slack_channel, ts: $json.slack_ts, text: 'Expired - no action taken.' }) : '{}' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SLACK_BOT_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ]
+        },
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "id": "d96c24fe-8da5-4bb4-98d9-37632debae51",
+      "name": "Slack: Mark Expired",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule: every 5 min": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Expire",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Expire": {
+      "main": [
+        [
+          {
+            "node": "Split Out: expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out: expired": {
+      "main": [
+        [
+          {
+            "node": "Slack: Mark Expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "sanitized"
+  },
+  "active": false,
+  "tags": []
+}

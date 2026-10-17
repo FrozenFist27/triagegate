@@ -1,0 +1,386 @@
+{
+  "name": "TriageGate - WF1 Triage Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "triage-ingest",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c6fe742e-8b54-449a-9df6-8e8c536c1587",
+      "name": "Webhook: triage-ingest",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "headerAuth": {
+          "id": "sanitized",
+          "name": "TriageGate Ingest Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "options": {},
+        "downloadAttachments": false
+      },
+      "id": "b4030257-22d1-4d49-8c9f-2c2f8320d2d4",
+      "name": "Email Trigger (IMAP) [enable manually]",
+      "type": "n8n-nodes-base.emailTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        220
+      ],
+      "credentials": {
+        "imap": {
+          "id": "sanitized",
+          "name": "TriageGate IMAP"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "message_id",
+              "value": "={{ $json.messageId || $json.MessageID || $json['ID'] || $json.id || $('Webhook: triage-ingest').item.json.headers['x-eval-message-id'] || ('webhook-' + Date.now()) }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "source",
+              "value": "={{ $json.source || ($node['Email Trigger (IMAP) [enable manually]').name && $execution.active ? 'imap' : 'webhook') }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "from_email",
+              "value": "={{ ($json.from || $json.sender || $json.senderAddress || '').toString().match(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/)?.[0] || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "from_name",
+              "value": "={{ ($json.from || $json.fromName || $json.sender || '').toString().replace(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/, '').replace(/[<>\"']/g, '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "subject",
+              "value": "={{ ($json.subject || '').toString().slice(0, 500) }}",
+              "type": "string"
+            },
+            {
+              "id": "6",
+              "name": "body_text",
+              "value": "={{ ($json.text || $json.body || $json.bodyText || $json.textPlain || '').toString().slice(0, 8000) }}",
+              "type": "string"
+            },
+            {
+              "id": "7",
+              "name": "received_at",
+              "value": "={{ $json.date || $json.receivedAt || new Date().toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "8",
+              "name": "source_hint",
+              "value": "={{ $json.source || 'webhook' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b065b54d-aa51-4529-aba2-a00215ee005e",
+      "name": "Set: Normalize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        110
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://triage-api:8000/triage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message_id: $json.message_id, source: $json.source_hint === 'imap' ? 'imap' : 'webhook', from_email: $json.from_email, from_name: $json.from_name, subject: $json.subject, body_text: $json.body_text, received_at: $json.received_at }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $env.TRIAGE_API_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "d722ec01-dff9-432f-80d3-ee4bef44dd95",
+      "name": "HTTP: Triage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        110
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sanitized",
+          "name": "TriageGate Internal Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "approval",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d394feaa-aa2c-4091-8c48-74f4dd4b9b7f",
+      "name": "IF: needs approval?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        110
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.SLACK_APPROVAL_CHANNEL_ID }}"
+        },
+        "text": "={{ $json.slack_text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "8f85ee81-d9d3-4d09-926f-66db9267c7be",
+      "name": "Slack: Post Approval",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "sanitized",
+          "name": "TriageGate Slack Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $env.SLACK_APPROVAL_CHANNEL_ID, text: $('HTTP: Triage').item.json.slack_text, blocks: $('HTTP: Triage').item.json.slack_blocks }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SLACK_BOT_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bc7ecfa7-c931-4344-a396-27015d3f35c9",
+      "name": "Slack: Post Blocks (chat.postMessage)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://triage-api:8000/approvals/{{ $('HTTP: Triage').item.json.approval_id }}/slack-ref",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $json.channel, ts: $json.ts }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $env.TRIAGE_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "de3f319a-1c18-4c82-830c-a9af04756b68",
+      "name": "HTTP: Save Slack Ref",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ run_id: $('HTTP: Triage').item.json.run_id, status: $('HTTP: Triage').item.json.status, route: $('HTTP: Triage').item.json.route, category: $('HTTP: Triage').item.json.triage ? $('HTTP: Triage').item.json.triage.category : null, approval_id: $('HTTP: Triage').item.json.approval_id }) }}",
+        "options": {}
+      },
+      "id": "dd2edf4a-8502-4572-a501-61e87aa6cbc6",
+      "name": "Respond: result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: triage-ingest": {
+      "main": [
+        [
+          {
+            "node": "Set: Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Trigger (IMAP) [enable manually]": {
+      "main": [
+        [
+          {
+            "node": "Set: Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: Normalize": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Triage": {
+      "main": [
+        [
+          {
+            "node": "IF: needs approval?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: needs approval?": {
+      "main": [
+        [
+          {
+            "node": "Slack: Post Blocks (chat.postMessage)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack: Post Blocks (chat.postMessage)": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Save Slack Ref",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Save Slack Ref": {
+      "main": [
+        [
+          {
+            "node": "Respond: result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "sanitized"
+  },
+  "active": false,
+  "tags": []
+}

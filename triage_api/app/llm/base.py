@@ -37,7 +37,7 @@ def get_client(provider: str | None = None):
     if name == "anthropic":
         from .anthropic_client import AnthropicClient
 
-        return AnthropicClient(model=s.llm_model, api_key=s.anthropic_api_key)
+        return AnthropicClient(model=s.llm_model, api_key=s.anthropic_api_key, base_url=s.llm_base_url)
     if name == "fake":
         from .fake_client import FakeLLMClient
 
