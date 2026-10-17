@@ -365,7 +365,7 @@ jane@acme-widgets.example.com</div>
         <section class="panel" id="panel-health" aria-label="Alert feed and health status">
           <p class="panel-note">
             Mock view: the alert feed a maintainer would watch, service health, and where measured
-            numbers will land — still placeholders until a real run.
+            numbers will land — measured values from the 2026-10-17 run.
           </p>
 
           <div class="panel-grid">
@@ -443,32 +443,32 @@ jane@acme-widgets.example.com</div>
               <div class="block" style="margin-top:16px">
                 <div class="block-head">
                   <h3>Measured results</h3>
-                  <span class="pending-chip" style="margin:0">To be measured</span>
+                  <span class="pending-chip" style="margin:0">Measured 2026-10-17</span>
                 </div>
                 <div class="fields">
                   <div class="field">
                     <span class="field-k">Accuracy</span>
-                    <span class="field-v">[PLACEHOLDER] on 24 labeled emails</span>
+                    <span class="field-v">100% (40/40) on 40 labeled emails</span>
                     <span class="cite">written by eval/run_eval.py → eval/results/summary.json</span>
                   </div>
                   <div class="field">
                     <span class="field-k">Invalid → CRM</span>
-                    <span class="field-v">[PLACEHOLDER] target 0</span>
+                    <span class="field-v">0 of 8 forced-fault runs</span>
                     <span class="cite">forced-fault run must show 0 writes</span>
                   </div>
                   <div class="field">
                     <span class="field-k">Duplicates</span>
-                    <span class="field-v">[PLACEHOLDER] target 0 on double-approve</span>
-                    <span class="cite">counted from HubSpot API search after replayed clicks</span>
+                    <span class="field-v">0 duplicates in 5 double-approve trials</span>
+                    <span class="cite">counted from crm_writes rows and the local HubSpot stand-in after replayed signed clicks</span>
                   </div>
                   <div class="field">
                     <span class="field-k">Latency p50</span>
-                    <span class="field-v">[PLACEHOLDER]</span>
+                    <span class="field-v">1.42 s (p95 1.60 s)</span>
                     <span class="cite">triage-api timing per email</span>
                   </div>
                   <div class="field">
                     <span class="field-k">Cost / email</span>
-                    <span class="field-v">[PLACEHOLDER]</span>
+                    <span class="field-v">$0.00012</span>
                     <span class="cite">tokens × price table, itemized per run</span>
                   </div>
                 </div>
@@ -489,7 +489,7 @@ jane@acme-widgets.example.com</div>
       <p>
         This console is a static mockup for a portfolio demo. All emails, IDs, timestamps and
         statuses are synthetic sample data; buttons are inert; no inbox, LLM, Slack workspace or
-        CRM is connected. Measured metrics remain placeholders until a real eval run.
+        CRM is connected. The Measured results panel shows values from a real run (eval/results/summary.json).
       </p>
     </div>
     <div class="footer-links">

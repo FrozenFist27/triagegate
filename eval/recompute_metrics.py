@@ -12,9 +12,16 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from metrics import (  # noqa: E402
-    CATEGORIES, accuracy, confusion_matrix, confusion_matrix_md, cost_summary, field_accuracy,
-    latency_stats, per_class_scores, schema_stats,
+from metrics import (
+    CATEGORIES,
+    accuracy,
+    confusion_matrix,
+    confusion_matrix_md,
+    cost_summary,
+    field_accuracy,
+    latency_stats,
+    per_class_scores,
+    schema_stats,
 )
 
 res = HERE / "results"

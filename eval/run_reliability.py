@@ -25,8 +25,8 @@ import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from dotenv import dotenv_values  # noqa: E402
-from simulate_click import signed_request  # noqa: E402
+from dotenv import dotenv_values
+from simulate_click import signed_request
 
 ENV = dotenv_values(ROOT / ".env")
 API = "http://localhost:8000"
@@ -51,7 +51,7 @@ def get(path: str):
 def mock_counts() -> dict | None:
     try:
         return httpx.get("http://localhost:8010/_mock/state", timeout=5).json()["counts"]
-    except Exception:
+    except (httpx.HTTPError, KeyError, ValueError):
         return None
 
 

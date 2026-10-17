@@ -1,0 +1,46 @@
+{
+  "generated_at": "2026-10-17T17:08:21.362793+00:00",
+  "fault_injection": "always_invalid",
+  "container_reported_model": "claude-haiku-5-5",
+  "n": 3,
+  "caught_and_retried": 3,
+  "recovered_on_retry": 0,
+  "quarantined_needs_review": 3,
+  "approvals_created_from_invalid_output": 0,
+  "slack_cards_posted_for_quarantined": 0,
+  "crm_writes_during_run": 0,
+  "crm_records_created_during_run": {
+    "contacts": 0,
+    "companies": 0,
+    "tickets": 0
+  },
+  "outcomes": [
+    {
+      "id": "eval-001",
+      "attempts": 3,
+      "status": "needs_review",
+      "route": "needs_review",
+      "approval_created": false,
+      "slack_posted": null,
+      "first_attempt_error": "invalid JSON: Expecting value at pos 0"
+    },
+    {
+      "id": "eval-002",
+      "attempts": 3,
+      "status": "needs_review",
+      "route": "needs_review",
+      "approval_created": false,
+      "slack_posted": null,
+      "first_attempt_error": "invalid JSON: Expecting value at pos 0"
+    },
+    {
+      "id": "eval-003",
+      "attempts": 3,
+      "status": "needs_review",
+      "route": "needs_review",
+      "approval_created": false,
+      "slack_posted": null,
+      "first_attempt_error": "invalid JSON: Expecting value at pos 0"
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+# TriageGate - AI email triage your CRM can trust
+
+> **Demo project. All data is synthetic.** n8n + Python (FastAPI) + Slack + HubSpot.
+> The point is not "an LLM classifies emails" - it is the reliability engineering around the LLM:
+> schema-validated output, retries, quarantine, a human click before any CRM write, idempotent
+> approvals, expiry and a full audit log.
+
+## Problem
+
+A shared inbox mixes leads, support requests, invoices and spam. Naive "AI automation" writes
+hallucinated, malformed or duplicate records straight into the CRM and nobody can say why.
+
+## Approach
+
+1. An email arrives (read-only IMAP trigger, or the ingest webhook used by the eval).
+2. `triage-api` (FastAPI) asks Claude to classify it and extract company / contact / summary / urgency.
+   Output is validated against a strict Pydantic schema (`extra=forbid`, enums, length limits). Invalid
+   output is retried (max 3 attempts, the validation error is fed back). Still invalid -> `needs_review`:
+   **no Slack card, no approval, no CRM**.
+3. Sales leads and support requests become a Slack card with Approve / Reject. Invoices and spam are only logged.
+4. The Slack click goes to n8n, which hands the raw body to `triage-api`. It verifies the Slack signature,
+   then flips the approval `pending -> approved` with one atomic SQL
+   `UPDATE ... WHERE status='pending' AND expires_at > now`. Only the single winner gets a CRM payload;
+   a second click is logged as a duplicate.
+5. n8n writes to HubSpot (search contact by email, create/update contact, then company or ticket with
+   associations) and reports the result back; the Slack card is updated.
+6. A schedule expires stale approvals (24 h in production, 2 min in the demo). Clicking an expired card does nothing.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  E[Email: IMAP trigger / ingest webhook] --> W1[n8n WF1 Intake]
+  W1 --> T[triage-api /triage<br/>LLM + schema validation + retry]
+  T -->|ok: lead or support| S[Slack approval card]
+  T -->|invoice / spam| L[(SQLite run log)]
+  T -->|3 invalid attempts| Q[needs_review: nothing written]
+  S -->|click| W2[n8n WF2 Slack handler]
+  W2 --> D[triage-api /approvals/decide<br/>signature + atomic transition]
+  D -->|write_crm once| H[HubSpot REST]
+  D -->|rejected / expired / duplicate| X[no CRM write]
+  W3[n8n WF3 schedule] --> D2[triage-api /approvals/expire] --> S
+```
+
+| Component | Tech | Role |
+|---|---|---|
+| Orchestrator | n8n 1.64.0 (Docker) | triggers, Slack and HubSpot HTTP calls, 3 workflows in `n8n/workflows/` |
+| triage-api | FastAPI, Pydantic v2, SQLite | LLM call, validation/retry, approval state machine, Slack signature, audit log |
+| LLM | `claude-haiku-5-5` via the Anthropic SDK, prompt caching, `max_tokens=700` | classify + extract |
+| Human approval | Slack Block Kit (bot scope `chat:write` only) | Approve / Reject |
+| CRM | HubSpot REST with a service key (Bearer) | contacts, companies, tickets |
+
+No credential lives in the workflow JSON: Slack and HubSpot are called with Bearer tokens read from the n8n
+container environment, so the workflows import and run with zero credential setup in the n8n UI.
+
+## Results (real run, 2026-10-17, model `claude-haiku-5-5`, 40 synthetic emails through the full n8n path)
+
+Source files: `eval/results/summary.json`, `confusion_matrix.md`, `fault_*.json`, `expiry_demo.json`.
+
+| Metric | Result |
+|---|---|
+| Classification accuracy | **40/40 (100%)**; precision, recall, F1 = 1.00 for all four classes |
+| First-attempt schema validity | 40/40, 0 retries, 0 needs_review (natural run) |
+| Extraction (lead + support emails, n=28) | contact email 28/28, company 27/28 ("Larkfield IT" vs "Larkfield"), urgency 21/28 (75%) |
+| Forced invalid output: first attempt poisoned | 5/5 caught, retried, recovered; 0 approvals from invalid output |
+| Forced invalid output: every attempt poisoned | 3/3 quarantined as `needs_review`; 0 Slack cards, 0 approvals, 0 CRM writes |
+| Invalid outputs that reached the CRM | **0 of 8** |
+| Double approve (5 trials: 4 sequential double clicks + 1 simultaneous pair) | 5/5 produced exactly **1** CRM write; 5 duplicate clicks ignored; **0 duplicates** |
+| Reject (3) | 3 rejected, 0 CRM writes |
+| Bad Slack signature (1) | refused and logged; approval stayed `pending` |
+| Expiry (3, TTL 2 min) | all 3 expired by the schedule within 179 s, cards updated, a later Approve click -> `expired`, 0 CRM writes |
+| Latency, triage-api (LLM + validation) | p50 1.42 s, p95 1.60 s |
+| Latency, end to end via n8n (incl. Slack post) | p50 2.58 s, p95 4.26 s |
+
+Honest notes on these numbers:
+
+- 100% on 40 hand-written synthetic emails is a regression check, not a claim about your inbox. The first
+  eval run exposed a real bug in my own business rule (a sender like `no-reply-user@...` was refused as a
+  contact, quarantining one support email); it is fixed and covered by a unit test. The table is the re-run.
+- **The supplied HubSpot service key is read-only.** Reads work; every create returns 403. So the
+  idempotency counts above were measured against `tools/hubspot_mock` (a local stand-in with the same
+  endpoints), and the real-HubSpot run shows the designed failure path (`crm_failed`, logged, Slack card
+  updated, nothing created: `eval/results/real_hubspot_check.json`). Once the `.write` scopes are added
+  (`docs/hubspot_setup.md`) the same run targets HubSpot with no code changes.
+- Slack clicks were simulated with correctly signed payloads sent to the same n8n webhook Slack would call
+  (also verified through a cloudflared quick tunnel). Real button clicks need the Interactivity URL set in the Slack app.
+
+## Cost per run
+
+| | |
+|---|---|
+| Per email | **$0.000123** (172.8 uncached input + 2,888 cached input + 153 output tokens at $0.10 / $0.50 per MTok) |
+| 40-email eval | $0.0049 |
+| Whole build incl. reruns, fault and expiry runs | well under US$0.02 |
+| Infrastructure | $0 (local Docker, cloudflared quick tunnel, free Slack) |
+
+## How to run
+
+Prereqs: Docker Desktop, Python 3.11, cloudflared (only for real Slack clicks).
+
+```bash
+python -m venv .venv && .venv/Scripts/pip install -e "triage_api[dev]" httpx python-dotenv
+cp .env.example .env                       # fill in values (never commit .env)
+docker compose up -d --build               # n8n :5678 + triage-api :8000
+bash scripts/reload_workflows.sh           # import + activate the 3 workflows
+python eval/run_eval.py --mode n8n --n8n-url http://localhost:5678/webhook/triage-ingest --run-tag demo --simulate-clicks
+python eval/recompute_metrics.py           # recompute metrics from the saved export (no LLM)
+.venv/Scripts/python -m pytest triage_api/tests eval/tests
+```
+
+- Real Slack buttons: `cloudflared tunnel --url http://localhost:5678`, then set the app's Interactivity
+  Request URL to `https://<tunnel>/webhook/slack-actions` (app from `docs/slack_app_manifest.yml`).
+- No Slack click possible? `python scripts/simulate_click.py <approval_id> approve` sends a signed payload.
+- Local HubSpot stand-in: `HUBSPOT_API_BASE=http://hubspot-mock:8010 docker compose --profile mock up -d --build`.
+- Reliability proofs: restart triage-api with `LLM_FAULT_INJECTION=first_attempt_invalid|always_invalid` or
+  `APPROVAL_TTL_MINUTES=2`, then `python eval/run_reliability.py fault|expiry`.
+- Check the workflows import into a fresh container: `powershell scripts/verify_import.ps1` (exit 0 = clean).
+
+## Limitations
+
+- Local only; the quick-tunnel URL changes every session. SQLite, single node.
+- Text emails only (no attachments / OCR), English-centric prompt, no auto-reply by design.
+- 40-email synthetic set; urgency is the weakest field (75%) because urgency is subjective.
+- Real HubSpot writes are unverified until the key gets write scopes (see Results).
+- The IMAP trigger is exported disabled and was not run against a mailbox in this build.
+- Prompts stay far below 100K tokens (cheap pricing tier); email bodies are truncated to 8,000 characters.
+
+## Layout
+
+```
+n8n/workflows/        3 exported workflows (generated by scripts/build_n8n_workflows.py, import-verified)
+triage_api/           FastAPI service + pytest suite
+eval/                 dataset (40), runner, metrics, reliability harness, results/
+tools/hubspot_mock/   local HubSpot stand-in (demo only)
+docs/                 architecture, Slack manifest, HubSpot setup, test records, video script, Upwork entry
+site/                 product pages
+```
+
+Tests: 75 passing (`pytest triage_api/tests eval/tests`), `ruff check` clean. License: MIT. Built as a portfolio demo.

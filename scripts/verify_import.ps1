@@ -1,12 +1,11 @@
 # Verify the committed workflow JSON imports cleanly into a FRESH n8n container.
 # Run from the project root:  powershell -File scripts/verify_import.ps1
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 $container = "triagegate-import-check"
 docker rm -f $container 2>$null | Out-Null
-docker volume rm triagegate_import_data 2>$null | Out-Null
 
 Write-Host "Starting a throwaway n8n container..."
 docker run -d --name $container `

@@ -31,9 +31,9 @@ def confusion_matrix(y_true: list[str], y_pred: list[str],
 
 def per_class_scores(cm: dict[str, dict[str, int]]) -> dict[str, dict[str, float]]:
     out: dict[str, dict[str, float]] = {}
-    for cls in cm:
-        tp = cm[cls][cls]
-        fn = sum(cm[cls][p] for p in cm[cls]) - tp
+    for cls, row in cm.items():
+        tp = row[cls]
+        fn = sum(row.values()) - tp
         fp = sum(cm[t][cls] for t in cm) - tp
         prec = tp / (tp + fp) if (tp + fp) else 0.0
         rec = tp / (tp + fn) if (tp + fn) else 0.0

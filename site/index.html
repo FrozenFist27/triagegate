@@ -278,7 +278,7 @@
         <div class="feature">
           <span class="feature-ico" aria-hidden="true">%</span>
           <h3>Measured, not claimed</h3>
-          <p>A 24-email labeled test set with a replayable eval runner reports accuracy,
+          <p>A 40-email labeled test set with a replayable eval runner reports accuracy,
             per-class precision/recall, retry counts and cost per email — from real runs only.</p>
         </div>
       </div>
@@ -290,50 +290,40 @@
     <div class="container">
       <div class="section-head">
         <div class="section-kicker">Results</div>
-        <h2 class="section-title">Numbers appear only when measured</h2>
+        <h2 class="section-title">Measured, not estimated</h2>
         <p class="section-sub">
-          Every figure below is produced by <code>eval/run_eval.py</code> writing
-          <code>eval/results/summary.json</code> from a real run. Until that run happens, each
-          value is a clearly marked placeholder — nothing here is estimated or invented.
+          Every figure below comes from a real run: <code>eval/run_eval.py</code> wrote <code>eval/results/summary.json</code> (2026-10-17, model <code>claude-haiku-5-5</code>, 40 synthetic emails, full n8n path).
         </p>
       </div>
       <div class="grid metrics-grid">
         <div class="metric">
-          <span class="pending-chip">To be measured</span>
-          <span class="metric-value">[PLACEHOLDER]</span>
-          <span class="metric-label">Classification accuracy on 24 labeled test emails</span>
-          <p class="metric-note">Target ≥ 0.90. Per-class P/R/F1 and a confusion matrix ship alongside.</p>
+          <span class="metric-value">100% (40/40)</span>
+          <span class="metric-label">Classification accuracy on 40 labeled test emails</span>
+          <p class="metric-note">Per-class precision, recall and F1 are all 1.00 on this small synthetic set; it is a regression check, not a claim about your inbox. First-attempt schema validity 40/40.</p>
         </div>
         <div class="metric">
-          <span class="pending-chip">To be measured</span>
-          <span class="metric-value">[PLACEHOLDER]</span>
+          <span class="metric-value">0 of 8</span>
           <span class="metric-label">Invalid model outputs written to the CRM</span>
-          <p class="metric-note">Target 0, verified on a forced-fault run where the first attempt is poisoned.</p>
+          <p class="metric-note">Forced-fault runs: 5 poisoned first attempts all recovered on retry, 3 emails with every attempt invalid were quarantined as needs_review. No Slack card, no approval, no CRM record.</p>
         </div>
         <div class="metric">
-          <span class="pending-chip">To be measured</span>
-          <span class="metric-value">[PLACEHOLDER]</span>
+          <span class="metric-value">0 of 5</span>
           <span class="metric-label">Duplicate CRM records from double-approval</span>
-          <p class="metric-note">Target 0, from concurrent and repeated signed click payloads.</p>
+          <p class="metric-note">5 trials (4 repeated clicks, 1 simultaneous pair) of signed click payloads: 5 clicks ignored, 1 CRM write each. Counted against a local HubSpot stand-in because the supplied HubSpot key was read-only.</p>
         </div>
         <div class="metric">
-          <span class="pending-chip">To be measured</span>
-          <span class="metric-value">[PLACEHOLDER]</span>
-          <span class="metric-label">Median processing time per email</span>
-          <p class="metric-note">p50 and p95 reported from triage-api timing plus end-to-end latency.</p>
+          <span class="metric-value">1.4 s</span>
+          <span class="metric-label">Median processing time per email (triage-api)</span>
+          <p class="metric-note">p50 1.42 s, p95 1.60 s for the LLM call and validation; 2.6 s p50 end to end through n8n including the Slack post.</p>
         </div>
         <div class="metric">
-          <span class="pending-chip">To be measured</span>
-          <span class="metric-value">[PLACEHOLDER]</span>
+          <span class="metric-value">$0.00012</span>
           <span class="metric-label">LLM cost per email</span>
-          <p class="metric-note">Token counts × current per-token price, summed across the eval run.</p>
+          <p class="metric-note">40 emails cost $0.0049 in total on claude-haiku-5-5 with prompt caching (about 2,900 cached tokens per email).</p>
         </div>
       </div>
       <p class="results-footnote">
-        Measurement plan: 24 synthetic labeled emails, run date and model id recorded with the
-        output, infra cost $0 (local Docker, free tiers), LLM tokens itemized per email. If you
-        are reading this before the first run, the honest answer is "not yet measured" — and the
-        placeholders say exactly that.
+        Measured on 40 synthetic labeled emails on 2026-10-17 with model claude-haiku-5-5; infra cost $0 (local Docker, free tiers). Demo project, synthetic data.
       </p>
     </div>
   </section>
@@ -446,8 +436,8 @@
     <div>
       <span class="footer-demo">Demo project</span>
       <p>
-        <strong>TriageGate</strong> is a portfolio demo project. All data is synthetic, all metrics
-        marked "to be measured" are placeholders until a real eval run, and no production systems
+        <strong>TriageGate</strong> is a portfolio demo project. All data is synthetic, the
+        metrics come from one real eval run on 2026-10-17, and no production systems
         are involved. Built as a showcase of n8n + Python human-in-the-loop automation.
       </p>
     </div>
