@@ -1,0 +1,38 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# data / caches
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+logs/*.jsonl
+!logs/.gitkeep
+eval/results/*.json
+eval/results/*.md
+eval/results/*.jsonl
+!eval/results/.gitkeep
+
+# python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# n8n local data (if run outside docker volume)
+n8n_data/
+.nodes/
+
+# editors / os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

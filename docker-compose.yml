@@ -1,0 +1,44 @@
+services:
+  n8n:
+    image: n8nio/n8n:1.64.0
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=${N8N_PUBLIC_URL:-http://localhost:5678/}
+      - N8N_SECURE_COOKIE=false
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - GENERIC_TIMEZONE=UTC
+      - DB_SQLITE_POOL_SIZE=5
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows
+    depends_on:
+      - triage-api
+
+  triage-api:
+    build: ./triage_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DB_PATH=/app/data/triagegate.db
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./eval:/app/eval
+
+  # Optional: IMAP live trigger only. Disabled by default - enable with:
+  #   docker compose --profile imap up -d
+  # (the eval path uses the n8n webhook, not IMAP).
+
+volumes:
+  n8n_data:

@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TriageGate — AI email triage your CRM can trust</title>
+<meta name="description" content="TriageGate classifies every inbound email, drafts the CRM record, and waits for one click in Slack before anything touches HubSpot. Built on n8n + Python. Portfolio demo project with synthetic data.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0%200%20100%20100'><rect width='100' height='100' rx='22' fill='%233b5bdb'/><text%20x='50'%20y='70'%20font-size='52'%20font-family='sans-serif'%20font-weight='bold'%20fill='%23ffffff'%20text-anchor='middle'>TG</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">TG</span>TriageGate</a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#results">Results</a>
+      <a href="#catalog">Upwork catalog</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="demo.html">Open the demo</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="container">
+      <span class="hero-badge">Portfolio demo project · synthetic data only</span>
+      <h1 class="hero-title">AI email triage your CRM can trust.</h1>
+      <p class="hero-lead">
+        <strong>AI inbox triage that never writes to your CRM without a human click.</strong>
+        TriageGate classifies every inbound email, drafts the CRM record, and waits for one
+        click in Slack before anything touches HubSpot. Built on n8n + Python.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="demo.html">Open the interactive mock</a>
+        <a class="btn btn-outline" href="#" title="Placeholder — demo video link is added once the ≤2 min video is published">Watch the 2-min demo</a>
+        <a class="btn btn-outline" href="#" title="Placeholder — GitHub repo link is added once the repo is public">View the code on GitHub</a>
+      </div>
+      <p class="hero-note">
+        The demo-video and GitHub buttons are placeholders until those artifacts are published.
+        Everything below is from the project design doc; measured numbers appear only after a real eval run.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= PROBLEM ================= -->
+  <section class="section" id="problem">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-kicker">The problem</div>
+        <h2 class="section-title">Shared inboxes drown teams — and naive AI makes it worse</h2>
+      </div>
+      <div class="grid problem-grid">
+        <div class="card">
+          <h3>Leads go cold, tickets get lost</h3>
+          <p>
+            Small B2B teams run <code>hello@</code> and <code>info@</code> as one shared inbox.
+            Sales leads, support requests, invoices and spam all land in the same list, so the
+            urgent reply waits behind a newsletter and nobody owns the follow-up.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Unguarded AI writes junk into the CRM</h3>
+          <p>
+            Plain "AI automation" pipelines push hallucinated or duplicate records straight into
+            HubSpot with no validation, no approval and no audit trail — and nobody can tell why
+            a phantom contact exists or which email created it.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Reliability is the hard part</h3>
+          <p>
+            Classifying an email is commodity work. Schema-validated output, retries, human
+            approval, idempotent writes and a full audit log are what clients actually get
+            burned by — and what this build demonstrates.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= HOW IT WORKS ================= -->
+  <section class="section section-alt" id="how">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-kicker">How it works</div>
+        <h2 class="section-title">Four steps, one human click</h2>
+        <p class="section-sub">
+          n8n orchestrates, Python validates, a human approves, and the CRM is written exactly
+          once. No step in the pipeline can reach HubSpot on its own.
+        </p>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">1</span>
+          <p><strong>Email arrives.</strong> An IMAP trigger, a webhook ingest, or the eval runner
+            normalizes the message and hands it to the workflow.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">2</span>
+          <p><strong>AI classifies and extracts.</strong> Company, contact, request summary and
+            urgency are pulled into a strict JSON schema — invalid output is retried, then
+            quarantined.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">3</span>
+          <p><strong>Slack decides.</strong> Leads and support requests post an Approve / Reject
+            card with the extracted fields. Signatures are verified; stale cards expire.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">4</span>
+          <p><strong>Only approvals reach the CRM.</strong> HubSpot is written once — a second
+            click is logged and ignored. Every run is recorded end to end.</p>
+        </div>
+      </div>
+
+      <figure class="diagram-wrap" aria-label="TriageGate architecture diagram">
+        <svg class="diagram" viewBox="0 0 1000 560" role="img" aria-labelledby="diag-title diag-desc">
+          <title id="diag-title">TriageGate architecture</title>
+          <desc id="diag-desc">
+            An email arrives via IMAP trigger, webhook or eval runner; n8n workflow WF1 posts it
+            to the Python triage-api service, which calls an LLM, validates the JSON schema with
+            up to three attempts, and routes the result. Approved items post a signed Slack card;
+            a click goes through a public tunnel to n8n workflow WF2, which writes HubSpot exactly
+            once and logs the result. Invoice and spam emails are logged without a CRM write.
+            Invalid output after three attempts lands in the needs_review queue and never reaches
+            the CRM. n8n workflow WF3 expires stale approvals. All events land in an audit log
+            kept in SQLite with JSONL export.
+          </desc>
+
+          <defs>
+            <marker id="tri-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path class="d-arrow-head" d="M0 0 L10 5 L0 10 z"></path>
+            </marker>
+          </defs>
+
+          <!-- ===== nodes ===== -->
+          <rect class="d-box" x="10" y="45" width="150" height="80" rx="10"></rect>
+          <text class="d-title" x="85" y="71" text-anchor="middle">Email arrives</text>
+          <text class="d-sub" x="85" y="91" text-anchor="middle">IMAP trigger · webhook</text>
+          <text class="d-sub" x="85" y="108" text-anchor="middle">eval runner → webhook</text>
+
+          <rect class="d-box d-box--accent" x="195" y="45" width="155" height="80" rx="10"></rect>
+          <text class="d-title" x="272" y="71" text-anchor="middle">n8n · WF1 Intake</text>
+          <text class="d-sub" x="272" y="91" text-anchor="middle">normalize email</text>
+          <text class="d-sub" x="272" y="108" text-anchor="middle">POST /triage</text>
+
+          <rect class="d-box d-box--accent" x="410" y="30" width="200" height="110" rx="10"></rect>
+          <text class="d-title" x="510" y="56" text-anchor="middle">triage-api (FastAPI)</text>
+          <text class="d-sub" x="510" y="78" text-anchor="middle">LLM: classify + extract</text>
+          <text class="d-sub" x="510" y="96" text-anchor="middle">Pydantic schema · retry ≤ 3</text>
+          <text class="d-sub" x="510" y="114" text-anchor="middle">route: approval | log | review</text>
+
+          <rect class="d-box d-box--ok" x="670" y="45" width="180" height="80" rx="10"></rect>
+          <text class="d-title" x="760" y="71" text-anchor="middle">Slack approval card</text>
+          <text class="d-sub" x="760" y="91" text-anchor="middle">Approve / Reject buttons</text>
+          <text class="d-sub" x="760" y="108" text-anchor="middle">signature verified</text>
+
+          <rect class="d-box d-box--accent" x="670" y="185" width="180" height="80" rx="10"></rect>
+          <text class="d-title" x="760" y="211" text-anchor="middle">n8n · WF2 Handler</text>
+          <text class="d-sub" x="760" y="231" text-anchor="middle">switch on outcome</text>
+          <text class="d-sub" x="760" y="248" text-anchor="middle">approve | reject | expired</text>
+
+          <rect class="d-box d-box--ok" x="670" y="325" width="180" height="70" rx="10"></rect>
+          <text class="d-title" x="760" y="351" text-anchor="middle">HubSpot CRM</text>
+          <text class="d-sub" x="760" y="371" text-anchor="middle">contact · company · ticket</text>
+          <text class="d-sub" x="760" y="388" text-anchor="middle">written once (idempotent)</text>
+
+          <rect class="d-box d-box--warn" x="410" y="325" width="200" height="70" rx="10"></rect>
+          <text class="d-title" x="510" y="351" text-anchor="middle">needs_review queue</text>
+          <text class="d-sub" x="510" y="371" text-anchor="middle">quarantined for a human</text>
+          <text class="d-sub" x="510" y="388" text-anchor="middle">never reaches the CRM</text>
+
+          <rect class="d-box" x="10" y="325" width="180" height="70" rx="10"></rect>
+          <text class="d-title" x="100" y="351" text-anchor="middle">n8n · WF3 Expiry</text>
+          <text class="d-sub" x="100" y="371" text-anchor="middle">every 5 min</text>
+          <text class="d-sub" x="100" y="388" text-anchor="middle">stale → expired, no action</text>
+
+          <rect class="d-box d-box--plain" x="270" y="455" width="420" height="80" rx="10"></rect>
+          <text class="d-title" x="480" y="481" text-anchor="middle">Audit log — SQLite + JSONL</text>
+          <text class="d-sub" x="480" y="503" text-anchor="middle">input · raw model output · attempts · decision · result</text>
+          <text class="d-sub" x="480" y="521" text-anchor="middle">GET /runs · export_runs.py</text>
+
+          <!-- ===== edges ===== -->
+          <path class="d-edge" d="M160 85 H195" marker-end="url(#tri-arrow)"></path>
+          <path class="d-edge" d="M350 85 H410" marker-end="url(#tri-arrow)"></path>
+
+          <path class="d-edge" d="M610 85 H670" marker-end="url(#tri-arrow)"></path>
+          <text class="d-edge-label" x="640" y="24" text-anchor="middle">route: approval</text>
+
+          <path class="d-edge" d="M760 125 V185" marker-end="url(#tri-arrow)"></path>
+          <text class="d-edge-label" x="768" y="160">signed click (tunnel)</text>
+
+          <path class="d-edge" d="M760 265 V325" marker-end="url(#tri-arrow)"></path>
+          <text class="d-edge-label" x="768" y="300">write once</text>
+
+          <path class="d-edge" d="M510 140 V325" marker-end="url(#tri-arrow)"></path>
+          <text class="d-edge-label" x="520" y="240">invalid after 3 tries</text>
+
+          <path class="d-edge" d="M410 130 H385 V456" marker-end="url(#tri-arrow)"></path>
+          <text class="d-edge-label" x="379" y="300" text-anchor="end">invoice / spam → log only</text>
+
+          <path class="d-edge" d="M510 395 V456" marker-end="url(#tri-arrow)"></path>
+          <text class="d-edge-label" x="518" y="430">quarantined</text>
+
+          <path class="d-edge" d="M760 395 V425 H660 V456" marker-end="url(#tri-arrow)"></path>
+          <text class="d-edge-label" x="668" y="443">result logged</text>
+
+          <path class="d-edge d-edge--dash" d="M190 360 H230 V510 H271" marker-end="url(#tri-arrow)"></path>
+          <text class="d-edge-label" x="225" y="445" text-anchor="end">expire sweep</text>
+        </svg>
+        <figcaption class="diagram-caption">
+          n8n runs the orchestration; the Python service owns validation, retries, signature
+          checks and idempotency; SQLite keeps the audit trail. The Slack callback reaches n8n
+          through a public tunnel, so nothing on the internet can talk to the CRM directly.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= FEATURES ================= -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-kicker">Features</div>
+        <h2 class="section-title">Reliability engineering around the AI</h2>
+        <p class="section-sub">
+          The selling point is not "an AI classifies emails" — it is every guard rail clients
+          usually discover the hard way.
+        </p>
+      </div>
+      <div class="grid feature-grid">
+        <div class="feature">
+          <span class="feature-ico" aria-hidden="true">{ }</span>
+          <h3>Strict schema validation + retry</h3>
+          <p>Every model reply is checked against a Pydantic schema. Invalid JSON or out-of-range
+            fields are retried up to three times with the validation error appended — then
+            quarantined, never written anywhere.</p>
+        </div>
+        <div class="feature">
+          <span class="feature-ico" aria-hidden="true">✓</span>
+          <h3>Human-in-the-loop approvals in Slack</h3>
+          <p>Leads and support requests wait for a person. Slack callbacks are HMAC-signed and
+            verified, with a five-minute freshness window, before anything is decided.</p>
+        </div>
+        <div class="feature">
+          <span class="feature-ico" aria-hidden="true">1×</span>
+          <h3>Idempotent CRM writes</h3>
+          <p>Approvals are a state machine with atomic transitions: double clicks, retries and
+            replayed payloads produce exactly one HubSpot record and a logged duplicate event.</p>
+        </div>
+        <div class="feature">
+          <span class="feature-ico" aria-hidden="true">⧗</span>
+          <h3>Auto-expiry of stale approvals</h3>
+          <p>A scheduled workflow sweeps pending approvals every five minutes. Past the TTL the
+            card updates to "expired — no action", and late clicks do nothing.</p>
+        </div>
+        <div class="feature">
+          <span class="feature-ico" aria-hidden="true">☰</span>
+          <h3>Full audit log</h3>
+          <p>Input, raw model output, every attempt, the decision and the CRM result are stored
+            per run in SQLite and exportable as JSONL, so any record can be traced back.</p>
+        </div>
+        <div class="feature">
+          <span class="feature-ico" aria-hidden="true">⇄</span>
+          <h3>Swappable LLM, workflows you own</h3>
+          <p>Claude Haiku by default behind a provider interface — Gemini or OpenAI drop in.
+            The n8n workflows export as JSON you can read, edit and re-import.</p>
+        </div>
+        <div class="feature">
+          <span class="feature-ico" aria-hidden="true">%</span>
+          <h3>Measured, not claimed</h3>
+          <p>A 24-email labeled test set with a replayable eval runner reports accuracy,
+            per-class precision/recall, retry counts and cost per email — from real runs only.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RESULTS ================= -->
+  <section class="section section-alt" id="results">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-kicker">Results</div>
+        <h2 class="section-title">Numbers appear only when measured</h2>
+        <p class="section-sub">
+          Every figure below is produced by <code>eval/run_eval.py</code> writing
+          <code>eval/results/summary.json</code> from a real run. Until that run happens, each
+          value is a clearly marked placeholder — nothing here is estimated or invented.
+        </p>
+      </div>
+      <div class="grid metrics-grid">
+        <div class="metric">
+          <span class="pending-chip">To be measured</span>
+          <span class="metric-value">[PLACEHOLDER]</span>
+          <span class="metric-label">Classification accuracy on 24 labeled test emails</span>
+          <p class="metric-note">Target ≥ 0.90. Per-class P/R/F1 and a confusion matrix ship alongside.</p>
+        </div>
+        <div class="metric">
+          <span class="pending-chip">To be measured</span>
+          <span class="metric-value">[PLACEHOLDER]</span>
+          <span class="metric-label">Invalid model outputs written to the CRM</span>
+          <p class="metric-note">Target 0, verified on a forced-fault run where the first attempt is poisoned.</p>
+        </div>
+        <div class="metric">
+          <span class="pending-chip">To be measured</span>
+          <span class="metric-value">[PLACEHOLDER]</span>
+          <span class="metric-label">Duplicate CRM records from double-approval</span>
+          <p class="metric-note">Target 0, from concurrent and repeated signed click payloads.</p>
+        </div>
+        <div class="metric">
+          <span class="pending-chip">To be measured</span>
+          <span class="metric-value">[PLACEHOLDER]</span>
+          <span class="metric-label">Median processing time per email</span>
+          <p class="metric-note">p50 and p95 reported from triage-api timing plus end-to-end latency.</p>
+        </div>
+        <div class="metric">
+          <span class="pending-chip">To be measured</span>
+          <span class="metric-value">[PLACEHOLDER]</span>
+          <span class="metric-label">LLM cost per email</span>
+          <p class="metric-note">Token counts × current per-token price, summed across the eval run.</p>
+        </div>
+      </div>
+      <p class="results-footnote">
+        Measurement plan: 24 synthetic labeled emails, run date and model id recorded with the
+        output, infra cost $0 (local Docker, free tiers), LLM tokens itemized per email. If you
+        are reading this before the first run, the honest answer is "not yet measured" — and the
+        placeholders say exactly that.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= UPCWORK / CATALOG ================= -->
+  <section class="section" id="catalog">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-kicker">Upwork Project Catalog</div>
+        <h2 class="section-title">Hire this workflow, built for your inbox</h2>
+        <p class="section-sub">
+          A draft of three catalog tiers built on the same architecture. Delivery times are the
+          plan; prices are deliberately left blank until the project owner sets them — this page
+          does not invent rates.
+        </p>
+      </div>
+      <div class="grid tiers">
+        <div class="card tier">
+          <span class="tier-name">Starter — n8n AI email triage setup</span>
+          <span class="tier-price">$[PRICE — owner to set]</span>
+          <span class="tier-time">Delivery: 5 days</span>
+          <ul>
+            <li>Classify + extract from one shared inbox</li>
+            <li>Slack notifications for leads and support</li>
+            <li>Your CRM connected (notify or draft)</li>
+          </ul>
+        </div>
+        <div class="card tier">
+          <span class="tier-name">Standard — approvals + safe CRM writes</span>
+          <span class="tier-price">$[PRICE — owner to set]</span>
+          <span class="tier-time">Delivery: 7–10 days</span>
+          <ul>
+            <li>Everything in Starter</li>
+            <li>Slack Approve / Reject with signature checks</li>
+            <li>Idempotent writes (HubSpot or Pipedrive)</li>
+            <li>Audit log + test set with an accuracy report</li>
+          </ul>
+        </div>
+        <div class="card tier">
+          <span class="tier-name">Advanced — multi-inbox rollout</span>
+          <span class="tier-price">$[PRICE — owner to set]</span>
+          <span class="tier-time">Delivery: 14 days</span>
+          <ul>
+            <li>Everything in Standard</li>
+            <li>Custom categories and multiple inboxes</li>
+            <li>Reporting dashboard</li>
+            <li>Deployment on your own server</li>
+          </ul>
+        </div>
+      </div>
+      <div class="cta-band">
+        <p>
+          <strong>Find me on Upwork:</strong> n8n, workflow automation, AI agents, human-in-the-loop
+          CRM automation. This build is a demo project with synthetic data — no client systems,
+          no real customer email.
+        </p>
+        <a class="btn btn-primary" href="#" title="Placeholder — Upwork profile / catalog link is added before publishing">Upwork profile (placeholder)</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FAQ ================= -->
+  <section class="section section-alt" id="faq">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-kicker">FAQ</div>
+        <h2 class="section-title">Questions clients ask first</h2>
+      </div>
+      <div class="faq">
+        <details class="faq-item">
+          <summary>Does it reply to emails automatically?</summary>
+          <div class="faq-a"><p>No — by design. It only drafts CRM records and asks a human. Auto-replying to senders is explicitly out of scope.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>Which LLMs does it support?</summary>
+          <div class="faq-a"><p>Claude Haiku by default; Gemini or OpenAI can be swapped in through a small provider interface. The LLM is called from Python so validation and retry logic stay testable.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>Which CRMs can it write to?</summary>
+          <div class="faq-a"><p>The demo uses HubSpot free tier. Pipedrive, Zoho and Salesforce are all reachable through n8n nodes with the same approval and idempotency layer in front.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>Is my data sent anywhere?</summary>
+          <div class="faq-a"><p>Only to the LLM provider you choose and your own CRM and Slack. n8n is self-hosted; there is no TriageGate server in the middle.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>What happens if the AI returns garbage?</summary>
+          <div class="faq-a"><p>It is validated against a strict schema, retried up to three times with the error fed back, then quarantined as <code>needs_review</code> — never written to the CRM.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>What if someone clicks Approve twice?</summary>
+          <div class="faq-a"><p>One record is created. The approval state machine transitions atomically, so the second click is logged as a duplicate and ignored — even if both clicks race.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>What does it cost to run?</summary>
+          <div class="faq-a"><p>Infrastructure can be $0 — self-hosted n8n on Docker, free Slack and HubSpot tiers, a free-tier tunnel for callbacks. LLM cost per email is reported in the results section once measured.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>Is this real client work?</summary>
+          <div class="faq-a"><p>No — it is a portfolio demo project built with synthetic data (fictional companies on <code>example.com</code> addresses). No real inboxes, no client systems, no customer data.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <span class="footer-demo">Demo project</span>
+      <p>
+        <strong>TriageGate</strong> is a portfolio demo project. All data is synthetic, all metrics
+        marked "to be measured" are placeholders until a real eval run, and no production systems
+        are involved. Built as a showcase of n8n + Python human-in-the-loop automation.
+      </p>
+    </div>
+    <div class="footer-links">
+      <a href="demo.html">UI mockup</a>
+      <a href="#how">Architecture</a>
+      <a href="#results">Results</a>
+      <a href="#faq">FAQ</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
