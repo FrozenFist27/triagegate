@@ -33,3 +33,4 @@ n8n_data/
 Thumbs.db
 .idea/
 .vscode/
+logs/*.log
