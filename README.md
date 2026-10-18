@@ -89,7 +89,7 @@ Honest notes on these numbers:
   Approve changed nothing, 0 records. Files: `eval/results/real_hubspot_run_summary.json`,
   `real_hubspot_expiry.json`. The earlier mock-based counts (table above) are kept as the original measurement.
   The partial first run (`real-1`) crashed after its single/double clicks because its 14-email slice
-  contained only sales leads, so the final run used a hand-picked 12-email slice (6 leads, 6 support).
+  contained only sales leads, so the final run used a 12-email slice (6 leads, 6 support); reproduce it with `--balanced 6` (see How to run).
 - The eval's Slack clicks were simulated with correctly signed payloads sent to the same n8n webhook Slack would call
   (also verified through a cloudflared quick tunnel). Real clicks now arrive through Socket Mode (see Slack setup).
 
@@ -113,6 +113,9 @@ docker compose up -d --build               # n8n :5678 + triage-api :8000 + slac
 bash scripts/reload_workflows.sh           # import + activate the 3 workflows
 python eval/run_eval.py --mode n8n --n8n-url http://localhost:5678/webhook/triage-ingest --run-tag demo --simulate-clicks
 python eval/recompute_metrics.py           # recompute metrics from the saved export (no LLM)
+# Real-HubSpot proof (writes [TriageGate test] records to your portal; needs the .write scopes):
+python eval/run_eval.py --mode n8n --n8n-url http://localhost:5678/webhook/triage-ingest --run-tag real-4 --simulate-clicks --balanced 6
+python scripts/count_hubspot_test_records.py
 .venv/Scripts/python -m pytest triage_api/tests eval/tests
 ```
 

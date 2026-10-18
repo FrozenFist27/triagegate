@@ -87,6 +87,8 @@ def main() -> int:
     ap.add_argument("--dataset", default=str(EVAL_DIR / "dataset" / "emails.jsonl"))
     ap.add_argument("--run-tag", default=datetime.now(UTC).strftime("%Y-%m-%d"))
     ap.add_argument("--limit", type=int, default=0, help="0 = all")
+    ap.add_argument("--balanced", type=int, default=0,
+                    help="take the first N sales_lead + first N support_request emails (N>=6 for --simulate-clicks)")
     ap.add_argument("--slack-url", default="http://localhost:5678/webhook/slack-actions",
                     help="n8n Slack-interactivity webhook that receives signed synthetic clicks")
     ap.add_argument("--simulate-clicks", action="store_true",
@@ -112,6 +114,10 @@ def main() -> int:
 
 
     rows = [json.loads(l) for l in Path(args.dataset).read_text(encoding="utf-8").splitlines() if l.strip()]
+    if args.balanced:
+        leads = [r for r in rows if r["label"]["category"] == "sales_lead"][: args.balanced]
+        support = [r for r in rows if r["label"]["category"] == "support_request"][: args.balanced]
+        rows = leads + support
     if args.limit:
         rows = rows[: args.limit]
     print(f"Replaying {len(rows)} emails via {args.mode} -> {ingest_url} (run_tag={args.run_tag})")
