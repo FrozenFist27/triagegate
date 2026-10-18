@@ -18,4 +18,4 @@ against a local HubSpot stand-in, then re-proven on the real HubSpot portal (14 
 
 **Role:** Solo - design, n8n workflows, Python service, tests, evaluation.
 **Skills:** n8n, Python, FastAPI, LLM / Claude API, HubSpot API, Slack API, workflow automation, Docker.
-**Links:** GitHub repo [PLACEHOLDER - after the owner approves publishing], demo video [PLACEHOLDER].
+**Links:** GitHub repo https://github.com/FrozenFist27/triagegate, demo video [PLACEHOLDER].
