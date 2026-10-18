@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     slack_bot_token: str = ""
     slack_signing_secret: str = ""
     slack_approval_channel_id: str = ""
+    slack_mode: str = "socket"  # socket | http
+    internal_forward_secret: str = ""
 
     # HubSpot
     hubspot_service_key: str = ""

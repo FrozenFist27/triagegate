@@ -24,7 +24,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Slack signs the exact raw bytes, so read the raw body binary, not the parsed form.\nconst item = $input.first();\nconst h = item.json.headers || {};\nconst buf = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: {\n  raw_body: buf.toString('utf8'),\n  signature: h['x-slack-signature'] || '',\n  timestamp: h['x-slack-request-timestamp'] || '',\n}}];"
+        "jsCode": "// Slack signs the exact raw bytes, so read the raw body binary, not the parsed form.\nconst item = $input.first();\nconst h = item.json.headers || {};\nconst buf = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: {\n  raw_body: buf.toString('utf8'),\n  signature: h['x-slack-signature'] || '',\n  timestamp: h['x-slack-request-timestamp'] || '',\n  forward_secret: h['x-internal-forward-secret'] || '',   // set by the slack-socket listener\n}}];"
       },
       "id": "790f8e66-3f0b-5685-a150-19ccf251be44",
       "name": "Code: Extract raw body",
@@ -53,7 +53,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ raw_body: $json.raw_body, signature: $json.signature, timestamp: $json.timestamp }) }}"
+        "jsonBody": "={{ JSON.stringify({ raw_body: $json.raw_body, signature: $json.signature, timestamp: $json.timestamp, forward_secret: $json.forward_secret }) }}"
       },
       "id": "77f93b9c-5ea8-5944-b273-bc4c277f5b91",
       "name": "HTTP: Decide",

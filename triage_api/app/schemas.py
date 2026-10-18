@@ -111,8 +111,11 @@ class DecideIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     raw_body: str
-    signature: str
-    timestamp: str
+    signature: str = ""
+    timestamp: str = ""
+    # Socket Mode: the slack-socket listener forwards interactions with an internal shared
+    # secret instead of a Slack HTTP signature (Slack does not sign Socket Mode payloads).
+    forward_secret: str = ""
 
 
 class CrmResultIn(BaseModel):

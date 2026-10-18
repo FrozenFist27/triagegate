@@ -30,6 +30,7 @@ from .schemas import (
 from .slack import (
     extract_action,
     parse_slack_payload,
+    verify_forward_secret,
     verify_slack_signature,
 )
 from .triage import run_triage
@@ -89,9 +90,13 @@ def slack_ref(approval_id: str, body: SlackRefIn) -> dict:
 
 @app.post("/approvals/decide", response_model=DecideResponse, dependencies=[Depends(require_token)])
 def approvals_decide(body: DecideIn) -> DecideResponse:
-    ok, reason = verify_slack_signature(
-        raw_body=body.raw_body, signature=body.signature, timestamp=body.timestamp
-    )
+    if body.forward_secret:
+        # Socket Mode path: no Slack signature exists; trust is the internal shared secret.
+        ok, reason = verify_forward_secret(body.forward_secret)
+    else:
+        ok, reason = verify_slack_signature(
+            raw_body=body.raw_body, signature=body.signature, timestamp=body.timestamp
+        )
     if not ok:
         log_event("invalid_signature", detail={"reason": reason})
         return DecideResponse(

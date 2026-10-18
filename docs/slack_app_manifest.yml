@@ -14,8 +14,8 @@ oauth_config:
 settings:
   interactivity:
     is_enabled: true
-    # Replace with your cloudflared quick-tunnel URL each session:
-    request_url: https://REPLACE-ME.trycloudflare.com/webhook/slack-actions
+    # Socket Mode: no request_url. For the HTTP alternative (SLACK_MODE=http) set
+    # socket_mode_enabled: false and add request_url: https://<tunnel>/webhook/slack-actions
   org_deploy_enabled: false
-  socket_mode_enabled: false
+  socket_mode_enabled: true
   token_rotation_enabled: false

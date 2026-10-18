@@ -54,6 +54,21 @@ def verify_slack_signature(
     return True, "ok"
 
 
+def verify_forward_secret(provided: str, *, expected: Optional[str] = None,
+                          mode: Optional[str] = None) -> tuple[bool, str]:
+    """Socket Mode: check the internal shared secret set by the slack-socket listener."""
+    st = get_settings()
+    mode = mode if mode is not None else st.slack_mode
+    expected = expected if expected is not None else st.internal_forward_secret
+    if mode != "socket":
+        return False, "internal forwarding disabled (SLACK_MODE is not socket)"
+    if not expected:
+        return False, "no internal forward secret configured"
+    if not provided or not hmac.compare_digest(provided.encode(), expected.encode()):
+        return False, "internal forward secret mismatch"
+    return True, "ok"
+
+
 def parse_slack_payload(raw_body: str) -> dict[str, Any]:
     """Slack interactivity sends application/x-www-form-urlencoded."""
     pairs = parse_qsl(raw_body, keep_blank_values=True)

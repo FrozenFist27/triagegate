@@ -18,8 +18,9 @@ hallucinated, malformed or duplicate records straight into the CRM and nobody ca
    output is retried (max 3 attempts, the validation error is fed back). Still invalid -> `needs_review`:
    **no Slack card, no approval, no CRM**.
 3. Sales leads and support requests become a Slack card with Approve / Reject. Invoices and spam are only logged.
-4. The Slack click goes to n8n, which hands the raw body to `triage-api`. It verifies the Slack signature,
-   then flips the approval `pending -> approved` with one atomic SQL
+4. The Slack click reaches n8n (Socket Mode: a small `slack-socket` listener forwards it over the compose
+   network, no public URL; HTTP mode: Slack POSTs it, signed). n8n hands the body to `triage-api`, which verifies
+   the Slack signature (HTTP) or the internal forward secret (Socket Mode), then flips the approval `pending -> approved` with one atomic SQL
    `UPDATE ... WHERE status='pending' AND expires_at > now`. Only the single winner gets a CRM payload;
    a second click is logged as a duplicate.
 5. n8n writes to HubSpot (search contact by email, create/update contact, then company or ticket with
@@ -48,6 +49,7 @@ flowchart LR
 | triage-api | FastAPI, Pydantic v2, SQLite | LLM call, validation/retry, approval state machine, Slack signature, audit log |
 | LLM | `claude-haiku-5-5` via the Anthropic SDK, prompt caching, `max_tokens=700` | classify + extract |
 | Human approval | Slack Block Kit (bot scope `chat:write` only) | Approve / Reject |
+| Click delivery | `slack-socket` (slack_sdk Socket Mode, `SLACK_APP_TOKEN` app-level token) | acks in <3 s, forwards to n8n `slack-actions`; no tunnel |
 | CRM | HubSpot REST with a service key (Bearer) | contacts, companies, tickets |
 
 No credential lives in the workflow JSON: Slack and HubSpot are called with Bearer tokens read from the n8n
@@ -82,8 +84,8 @@ Honest notes on these numbers:
   endpoints), and the real-HubSpot run shows the designed failure path (`crm_failed`, logged, Slack card
   updated, nothing created: `eval/results/real_hubspot_check.json`). Once the `.write` scopes are added
   (`docs/hubspot_setup.md`) the same run targets HubSpot with no code changes.
-- Slack clicks were simulated with correctly signed payloads sent to the same n8n webhook Slack would call
-  (also verified through a cloudflared quick tunnel). Real button clicks need the Interactivity URL set in the Slack app.
+- The eval's Slack clicks were simulated with correctly signed payloads sent to the same n8n webhook Slack would call
+  (also verified through a cloudflared quick tunnel). Real clicks now arrive through Socket Mode (see Slack setup).
 
 ## Cost per run
 
@@ -92,33 +94,52 @@ Honest notes on these numbers:
 | Per email | **$0.000123** (172.8 uncached input + 2,888 cached input + 153 output tokens at $0.10 / $0.50 per MTok) |
 | 40-email eval | $0.0049 |
 | Whole build incl. reruns, fault and expiry runs | well under US$0.02 |
-| Infrastructure | $0 (local Docker, cloudflared quick tunnel, free Slack) |
+| Infrastructure | $0 (local Docker, Slack Socket Mode, free Slack) |
 
 ## How to run
 
-Prereqs: Docker Desktop, Python 3.11, cloudflared (only for real Slack clicks).
+Prereqs: Docker Desktop, Python 3.11. No tunnel is needed (cloudflared only for the optional HTTP mode).
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -e "triage_api[dev]" httpx python-dotenv
 cp .env.example .env                       # fill in values (never commit .env)
-docker compose up -d --build               # n8n :5678 + triage-api :8000
+docker compose up -d --build               # n8n :5678 + triage-api :8000 + slack-socket
 bash scripts/reload_workflows.sh           # import + activate the 3 workflows
 python eval/run_eval.py --mode n8n --n8n-url http://localhost:5678/webhook/triage-ingest --run-tag demo --simulate-clicks
 python eval/recompute_metrics.py           # recompute metrics from the saved export (no LLM)
 .venv/Scripts/python -m pytest triage_api/tests eval/tests
 ```
 
-- Real Slack buttons: `cloudflared tunnel --url http://localhost:5678`, then set the app's Interactivity
-  Request URL to `https://<tunnel>/webhook/slack-actions` (app from `docs/slack_app_manifest.yml`).
+- Check the listener: `docker compose logs slack-socket` should show `connected to Slack Socket Mode`.
+- Tests: `.venv/Scripts/python -m pytest triage_api/tests eval/tests` and `cd slack_socket && ../.venv/Scripts/python -m pytest tests`.
 - No Slack click possible? `python scripts/simulate_click.py <approval_id> approve` sends a signed payload.
 - Local HubSpot stand-in: `HUBSPOT_API_BASE=http://hubspot-mock:8010 docker compose --profile mock up -d --build`.
 - Reliability proofs: restart triage-api with `LLM_FAULT_INJECTION=first_attempt_invalid|always_invalid` or
   `APPROVAL_TTL_MINUTES=2`, then `python eval/run_reliability.py fault|expiry`.
 - Check the workflows import into a fresh container: `powershell scripts/verify_import.ps1` (exit 0 = clean).
 
+## Slack setup (Socket Mode, default, no tunnel)
+
+1. Create the app from `docs/slack_app_manifest.yml` (Socket Mode and Interactivity on, no Request URL).
+   Install it to the workspace, copy the Bot token (`xoxb` prefix) and Signing Secret, invite the bot to the channel.
+2. Get the app token: app settings -> Basic Information -> App-Level Tokens -> Generate Token and Scopes ->
+   scope `connections:write` -> copy the app-level token (starts with `xapp`).
+3. Put `SLACK_APP_TOKEN` in `.env` (`SLACK_MODE=socket` is the default). `python scripts/add_socket_env.py`
+   copies it from a private secrets file and generates `INTERNAL_FORWARD_SECRET` (shared by the listener and
+   triage-api; Slack does not sign Socket Mode payloads, so this header authenticates the internal hop).
+4. `docker compose up -d --build`, then `bash scripts/reload_workflows.sh` (WF2 reads the forward-secret header).
+
+Click path: Slack -> websocket -> `slack-socket` (ack) -> n8n `slack-actions` -> `triage-api /approvals/decide`
+(same atomic idempotency, expiry, reject and card update as before). The forward secret is only honoured when
+`SLACK_MODE=socket`; the signed-HTTP check is unchanged.
+
+**Alternative, HTTP mode (needs a public URL):** set `SLACK_MODE=http`, turn Socket Mode off in the app, run
+`cloudflared tunnel --url http://localhost:5678` and set the Interactivity Request URL to
+`https://<tunnel>/webhook/slack-actions`. Slack's signature is then verified; the listener idles.
+
 ## Limitations
 
-- Local only; the quick-tunnel URL changes every session. SQLite, single node.
+- Local only. SQLite, single node. (HTTP mode needs a tunnel whose URL changes every session; Socket Mode does not.)
 - Text emails only (no attachments / OCR), English-centric prompt, no auto-reply by design.
 - 40-email synthetic set; urgency is the weakest field (75%) because urgency is subjective.
 - Real HubSpot writes are unverified until the key gets write scopes (see Results).
@@ -128,6 +149,7 @@ python eval/recompute_metrics.py           # recompute metrics from the saved ex
 ## Layout
 
 ```
+slack_socket/          Socket Mode listener + Dockerfile + tests
 n8n/workflows/        3 exported workflows (generated by scripts/build_n8n_workflows.py, import-verified)
 triage_api/           FastAPI service + pytest suite
 eval/                 dataset (40), runner, metrics, reliability harness, results/
@@ -136,4 +158,4 @@ docs/                 architecture, Slack manifest, HubSpot setup, test records,
 site/                 product pages
 ```
 
-Tests: 75 passing (`pytest triage_api/tests eval/tests`), `ruff check` clean. License: MIT. Built as a portfolio demo.
+Tests: 81 passing (`pytest triage_api/tests eval/tests`) plus 4 for the listener, `ruff check` clean. License: MIT. Built as a portfolio demo.

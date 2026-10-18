@@ -48,6 +48,20 @@ services:
       - ./logs:/app/logs
       - ./eval:/app/eval
 
+  # Slack Socket Mode listener: receives button clicks over an outbound websocket (no tunnel),
+  # acks within 3 s and forwards them to n8n's slack-actions webhook with an internal secret.
+  # SLACK_MODE=http makes it idle; the signed HTTP path (tunnel) is then used instead.
+  slack-socket:
+    build: ./slack_socket
+    restart: unless-stopped
+    environment:
+      - SLACK_MODE=${SLACK_MODE:-socket}
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN:-}
+      - INTERNAL_FORWARD_SECRET=${INTERNAL_FORWARD_SECRET:-}
+      - FORWARD_URL=http://n8n:5678/webhook/slack-actions
+    depends_on:
+      - n8n
+
   # Local HubSpot stand-in used ONLY to prove idempotency while the real service key
   # lacks write scopes:  HUBSPOT_API_BASE=http://hubspot-mock:8010 docker compose --profile mock up -d
   hubspot-mock:

@@ -243,6 +243,7 @@ return [{ json: {
   raw_body: buf.toString('utf8'),
   signature: h['x-slack-signature'] || '',
   timestamp: h['x-slack-request-timestamp'] || '',
+  forward_secret: h['x-internal-forward-secret'] || '',   // set by the slack-socket listener
 }}];
 """.strip()
 
@@ -304,7 +305,7 @@ def wf2():
                    tv=2, extra={"webhookId": str(uuid.uuid5(NS, "wh-slack"))})
     extract = code("Code: Extract raw body", [240, 0], EXTRACT_RAW)
     decide = http("HTTP: Decide", [480, 0], "POST", API + "/approvals/decide",
-                  body="={{ JSON.stringify({ raw_body: $json.raw_body, signature: $json.signature, timestamp: $json.timestamp }) }}",
+                  body="={{ JSON.stringify({ raw_body: $json.raw_body, signature: $json.signature, timestamp: $json.timestamp, forward_secret: $json.forward_secret }) }}",
                   timeout=20000)
 
     def rule(key):
