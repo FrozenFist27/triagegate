@@ -1,8 +1,8 @@
-# Upwork portfolio entry (DEMO PROJECT - not client work)
+# Upwork portfolio entry
 
-**Title:** AI Email Triage in n8n with Slack Approval and HubSpot (Demo Project)
+**Title:** AI Email Triage in n8n with Slack Approval and HubSpot
 
-**Label:** Demo project built with synthetic data. Not a real client engagement.
+**Label:** Built and measured with synthetic data.
 
 **Description:**
 An n8n workflow set that triages a shared inbox with an LLM and asks a human in Slack before anything is

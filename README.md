@@ -1,6 +1,6 @@
 # TriageGate - AI email triage your CRM can trust
 
-> **Demo project. All data is synthetic.** n8n + Python (FastAPI) + Slack + HubSpot.
+> n8n + Python (FastAPI) + Slack + HubSpot.
 > The point is not "an LLM classifies emails" - it is the reliability engineering around the LLM:
 > schema-validated output, retries, quarantine, a human click before any CRM write, idempotent
 > approvals, expiry and a full audit log.
@@ -167,4 +167,4 @@ docs/                 architecture, Slack manifest, HubSpot setup, test records,
 site/                 product pages
 ```
 
-Tests: 81 passing (`pytest triage_api/tests eval/tests`) plus 4 for the listener, `ruff check` clean. License: MIT. Built as a portfolio demo.
+Tests: 81 passing (`pytest triage_api/tests eval/tests`) plus 4 for the listener, `ruff check` clean. License: MIT.

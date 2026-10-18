@@ -1,7 +1,7 @@
 # Slack app manifest for TriageGate (no secrets). Create via: api.slack.com/apps -> Create New App -> From a manifest.
 display_information:
   name: triagegate
-  description: Human approval for AI-triaged inbound email (portfolio demo, synthetic data)
+  description: Human approval for AI-triaged inbound email (synthetic data)
   background_color: "#1f2937"
 features:
   bot_user:
