@@ -34,3 +34,6 @@ Thumbs.db
 .idea/
 .vscode/
 logs/*.log
+
+# internal design notes (kept local)
+IDEATION.md
