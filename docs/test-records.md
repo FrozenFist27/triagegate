@@ -2,20 +2,32 @@
 
 Every record TriageGate creates is marked `[TriageGate test]` (contact last name, company name, ticket subject).
 
-## Real HubSpot portal: 0 records created
+## Real HubSpot portal: 27 records created (2026-10-18)
 
-The HubSpot service key supplied for this build is **read-only**: contacts, companies and tickets can be
-read and searched, but every create call returns `403 This app hasn't been granted all required scopes`.
-Nothing was created, so there is nothing to clean up in the real portal. The failure path was exercised
-for real and behaves as designed: the approval ends as `crm_failed`, the error is logged in `crm_writes`,
-and the Slack card is updated to say the write failed (evidence: `eval/results/real_hubspot_check.json`).
+After the `.write` scopes were added to the service key, the eval ran against the real portal
+(`eval/results/real_hubspot_run_summary.json`, `real_hubspot_expiry.json`). 14 approvals were approved, each
+produced exactly one write row. Rejected and expired approvals created nothing. Delete these in HubSpot when
+done (search for "TriageGate"). List them with `python scripts/count_hubspot_test_records.py`.
 
-To finish the real-CRM proof, add the `.write` scopes (see `docs/hubspot_setup.md`) to the service key and run:
+| approval | contact id | company id | ticket id |
+|---|---|---|---|
+| 6a6b4bd3 | 571991871193 | 353240830695 | - |
+| 11c6e382 | 571975206634 | 353240830694 | - |
+| e23a5a8e | 572044293821 | 353505094336 | - |
+| 667dcfb4 | 571984589501 | 353110215399 | - |
+| 4014416a | 572029141744 | - | - |
+| 3b11c127 | 572046072568 | 353240831674 | - |
+| 47076843 | 571991873251 | 353244411611 | - |
+| 25db2cbf | 571975209677 | - | 341944399583 |
+| e72e9f53 | 571991873252 | - | 341525733091 |
+| b7bd9f1f | 572044295907 | 353339485886 | - |
+| 2725a262 | 571984592582 | 353510987465 | - |
+| 9858aa6d | 571984592588 | 353514608353 | - |
+| 4298e365 | 572022657749 | - | 341538298597 |
+| 14dd2694 | 571984592592 | - | 341660126942 |
 
-```
-python eval/run_eval.py --mode n8n --n8n-url http://localhost:5678/webhook/triage-ingest --run-tag real-1 --simulate-clicks --limit 14
-python scripts/count_hubspot_test_records.py     # lists the ids it created
-```
+Totals: 14 contacts, 9 companies, 4 tickets (contact last name, company name and ticket subject carry
+`[TriageGate test]`). Before the scopes were added, one real create attempt returned 403 and created nothing.
 
 ## Local HubSpot stand-in (NOT HubSpot)
 

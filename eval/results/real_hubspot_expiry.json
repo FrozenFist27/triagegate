@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-10-18T10:55:39.196799+00:00",
+  "ttl_minutes": 2,
+  "n": 3,
+  "waited_seconds_for_expiry": 131,
+  "status_after_clicks": [
+    "expired",
+    "expired",
+    "expired"
+  ],
+  "approval_expired_events": 3,
+  "click_on_expired_events": 3,
+  "crm_writes_created": 0,
+  "mock_counts": null
+}

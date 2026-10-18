@@ -1,0 +1,216 @@
+{
+  "generated_at": "2026-10-18T10:50:19.023910+00:00",
+  "run_tag": "real-3",
+  "mode": "n8n",
+  "dataset": "eval\\dataset\\_real2.jsonl",
+  "n_emails": 12,
+  "n_scored": 12,
+  "n_errors": 0,
+  "classification": {
+    "accuracy": 1.0,
+    "per_class": {
+      "sales_lead": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 6
+      },
+      "support_request": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 6
+      },
+      "invoice": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "spam": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      }
+    },
+    "confusion_matrix": {
+      "sales_lead": {
+        "sales_lead": 6,
+        "support_request": 0,
+        "invoice": 0,
+        "spam": 0
+      },
+      "support_request": {
+        "sales_lead": 0,
+        "support_request": 6,
+        "invoice": 0,
+        "spam": 0
+      },
+      "invoice": {
+        "sales_lead": 0,
+        "support_request": 0,
+        "invoice": 0,
+        "spam": 0
+      },
+      "spam": {
+        "sales_lead": 0,
+        "support_request": 0,
+        "invoice": 0,
+        "spam": 0
+      }
+    },
+    "predicted_distribution": {
+      "sales_lead": 6,
+      "support_request": 6
+    },
+    "label_distribution": {
+      "sales_lead": 6,
+      "support_request": 6
+    }
+  },
+  "extraction": {
+    "company": {
+      "accuracy": 0.9167,
+      "correct": 11,
+      "total": 12,
+      "misses": [
+        {
+          "id": "eval-009",
+          "expected": "Larkfield",
+          "got": "Larkfield IT"
+        }
+      ]
+    },
+    "contact_email": {
+      "accuracy": 1.0,
+      "correct": 12,
+      "total": 12,
+      "misses": []
+    },
+    "urgency": {
+      "accuracy": 0.75,
+      "correct": 9,
+      "total": 12,
+      "misses": [
+        {
+          "id": "eval-007",
+          "expected": "low",
+          "got": "medium"
+        },
+        {
+          "id": "eval-016",
+          "expected": "medium",
+          "got": "low"
+        },
+        {
+          "id": "eval-020",
+          "expected": "low",
+          "got": "medium"
+        }
+      ]
+    }
+  },
+  "schema": {
+    "total": 12,
+    "first_attempt_valid": 12,
+    "first_attempt_valid_rate": 1.0,
+    "runs_with_retries": 0,
+    "needs_review": 0
+  },
+  "latency_ms": {
+    "p50": 1434.5,
+    "p95": 1776.8,
+    "mean": 1472.75,
+    "n": 12
+  },
+  "e2e_ms": {
+    "p50": 2889.0,
+    "p95": 3689.15,
+    "mean": 3075.75,
+    "n": 12
+  },
+  "cost": {
+    "emails": 12,
+    "input_tokens_total": 2020,
+    "output_tokens_total": 1939,
+    "cache_read_tokens_total": 34656,
+    "input_tokens_per_email": 168.3,
+    "cache_read_tokens_per_email": 2888.0,
+    "output_tokens_per_email": 161.6,
+    "usd_total": 0.001518,
+    "usd_per_email": 0.000127,
+    "price_in_per_mtok": 0.1,
+    "price_out_per_mtok": 0.5
+  },
+  "reliability": {
+    "approvals_created": 12,
+    "clicks_via": "signed synthetic Slack payloads -> n8n webhook",
+    "single_approve": {
+      "n": 4,
+      "crm_written": 4,
+      "crm_write_rows_each": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "double_approve": {
+      "n": 5,
+      "concurrent_trials": 1,
+      "clicks_registered_each": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "crm_write_rows_each": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "duplicate_crm_writes": 0,
+      "duplicate_clicks_ignored": 13
+    },
+    "reject": {
+      "n": 3,
+      "status_rejected": 3,
+      "crm_writes": 0
+    },
+    "crm_write_rows_total": 24,
+    "hubspot": {
+      "target": "real",
+      "note": "count real records via scripts/count_hubspot_test_records.py"
+    },
+    "approved_approvals": [
+      "0fb71f89-d5d0-4df5-9033-efb2d26c9726",
+      "11c6e382-955c-401a-8758-4447347b0080",
+      "14dd2694-5cd4-4d8f-9de9-f1fce78dc1bb",
+      "19f3be5e-785b-43c3-bc2e-c7dc822e5338",
+      "25db2cbf-1c48-46dc-a9a9-1ee47032bbdd",
+      "2725a262-7600-4257-bc8f-306a98f323fb",
+      "3b11c127-f094-44e6-8309-42a71f341652",
+      "4014416a-f03a-458c-9a35-87a5816f2997",
+      "4298e365-ce28-4d73-af0d-09c5bd2b119d",
+      "43f81cf1-26e0-4a98-ba08-ccd265a62400",
+      "47076843-a095-47bd-95a8-6fe4331e111e",
+      "539052e5-fd06-4d10-a2ac-e39a600b6c59",
+      "667dcfb4-b8b6-4670-af03-4dc2d52f1791",
+      "6a6b4bd3-b7f5-4f54-ade7-64f4c31230f5",
+      "720c8ca4-dc9e-4c16-aab4-f9571cc5b020",
+      "76bf083f-c9d4-4d1f-b4da-d9a46f681341",
+      "9858aa6d-94d9-435c-aad6-093fc0271009",
+      "b7bd9f1f-d87c-453f-ad8e-2904c8e2acc3",
+      "c25447d2-4975-4d37-a9ef-29987e1aa112",
+      "d4d97744-2ad3-4957-8641-3532ad8719a4",
+      "de400b21-582e-4e6d-bc11-4cd60f929062",
+      "e23a5a8e-44ba-4432-863d-9d13d2c7096f",
+      "e72e9f53-396a-405c-a3ae-a6804417a8c0",
+      "ebc15a57-dcef-4e5f-825f-2dd39464bff0"
+    ]
+  }
+}

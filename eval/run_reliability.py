@@ -94,7 +94,7 @@ def cmd_expiry(a) -> dict:
     ttl = health["approval_ttl_minutes"]
     if ttl > 5:
         sys.exit(f"triage-api TTL is {ttl} min; restart it with APPROVAL_TTL_MINUTES=2 first")
-    tag = "expiry-demo"
+    tag = a.tag
     leads = [r for r in ROWS if r["label"]["category"] == "sales_lead"][-a.n:]
     ids = []
     for r in leads:
@@ -135,6 +135,7 @@ def main() -> None:
     f.add_argument("--n", type=int, default=5)
     e = sub.add_parser("expiry")
     e.add_argument("--n", type=int, default=3)
+    e.add_argument("--tag", default="expiry-demo")
     a = ap.parse_args()
     res = cmd_fault(a) if a.cmd == "fault" else cmd_expiry(a)
     name = f"fault_{a.mode}.json" if a.cmd == "fault" else "expiry_demo.json"

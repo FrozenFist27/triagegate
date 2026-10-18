@@ -79,11 +79,17 @@ Honest notes on these numbers:
 - 100% on 40 hand-written synthetic emails is a regression check, not a claim about your inbox. The first
   eval run exposed a real bug in my own business rule (a sender like `no-reply-user@...` was refused as a
   contact, quarantining one support email); it is fixed and covered by a unit test. The table is the re-run.
-- **The supplied HubSpot service key is read-only.** Reads work; every create returns 403. So the
-  idempotency counts above were measured against `tools/hubspot_mock` (a local stand-in with the same
-  endpoints), and the real-HubSpot run shows the designed failure path (`crm_failed`, logged, Slack card
-  updated, nothing created: `eval/results/real_hubspot_check.json`). Once the `.write` scopes are added
-  (`docs/hubspot_setup.md`) the same run targets HubSpot with no code changes.
+- **Real HubSpot proof (2026-10-18, real portal, no mock, `HUBSPOT_API_BASE` unset).** The first key was
+  read-only (creates returned 403: the designed `crm_failed` path, `eval/results/real_hubspot_check.json`).
+  After `crm.objects.{contacts,companies,tickets}.write` were added, signed simulated clicks through the full
+  n8n path gave: 4 single approvals + 5 double-approve trials (4 sequential, 1 simultaneous pair) -> 14 approved
+  approvals (incl. 5 from a first partial run) -> **14 CRM write rows, exactly one per approval, 0 duplicates**;
+  14 contacts, 9 companies, 4 tickets in the portal, all marked `[TriageGate test]` (ids in
+  `docs/test-records.md`); 3 rejects -> 0 records; 3 expired approvals (TTL 2 min, expired in 131 s) -> a later
+  Approve changed nothing, 0 records. Files: `eval/results/real_hubspot_run_summary.json`,
+  `real_hubspot_expiry.json`. The earlier mock-based counts (table above) are kept as the original measurement.
+  The partial first run (`real-1`) crashed after its single/double clicks because its 14-email slice
+  contained only sales leads, so the final run used a hand-picked 12-email slice (6 leads, 6 support).
 - The eval's Slack clicks were simulated with correctly signed payloads sent to the same n8n webhook Slack would call
   (also verified through a cloudflared quick tunnel). Real clicks now arrive through Socket Mode (see Slack setup).
 
@@ -142,7 +148,7 @@ Click path: Slack -> websocket -> `slack-socket` (ack) -> n8n `slack-actions` ->
 - Local only. SQLite, single node. (HTTP mode needs a tunnel whose URL changes every session; Socket Mode does not.)
 - Text emails only (no attachments / OCR), English-centric prompt, no auto-reply by design.
 - 40-email synthetic set; urgency is the weakest field (75%) because urgency is subjective.
-- Real HubSpot writes are unverified until the key gets write scopes (see Results).
+- Real HubSpot writes were verified on 2026-10-18 against a test portal (see Results); the test records are still there (`docs/test-records.md`).
 - The IMAP trigger is exported disabled and was not run against a mailbox in this build.
 - Prompts stay far below 100K tokens (cheap pricing tier); email bodies are truncated to 8,000 characters.
 
